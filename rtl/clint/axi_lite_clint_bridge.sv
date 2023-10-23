@@ -149,30 +149,6 @@ module axi_lite_clint_bridge #(
     end else begin
       state_q   <= state_d;
       address_q <= address_n;
-      // trans_id_q <= trans_id_n;
     end
   end
-
-  // ------------------------
-  // Assertions
-  // ------------------------
-  // Listen for illegal transactions
-  //pragma translate_off
-  // `ifndef VERILATOR
-  //   // check that burst length is just one
-  //   assert property (@(posedge clk_i) ar_valid |-> ((ar_len == 8'b0)))
-  //   else begin
-  //     $error(
-  //         "AXI Lite does not support bursts larger than 1 or byte length unequal to the native bus size");
-  //     $stop();
-  //   end
-  //   // do the same for the write channel
-  //   assert property (@(posedge clk_i) aw_valid |-> ((aw.len == 8'b0)))
-  //   else begin
-  //     $error(
-  //         "AXI Lite does not support bursts larger than 1 or byte length unequal to the native bus size");
-  //     $stop();
-  //   end
-  // `endif
-  //pragma translate_on
 endmodule

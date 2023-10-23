@@ -19,7 +19,7 @@
 // Edited at Barcelona Supercomputing Center by Alejandro Tafalla
 // 9/10/23: Formatting, changed the AXI port interface, removed 32b cases
 
-module cincoranch_clint #(
+module bsc_clint #(
     parameter int unsigned AXI_ADDR_WIDTH = 64,
     parameter int unsigned AXI_DATA_WIDTH = 64,
     parameter int unsigned AXI_ID_WIDTH = 10,
