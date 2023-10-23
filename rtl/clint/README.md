@@ -1,7 +1,7 @@
 **Module has been edited by Alejandro Tafalla at the Barcelona Supercomputing Center.**
 
 - 9/10/23: Formatting, changed the AXI port interface, removed 32b cases
-
+- 23/10/23: Remove commented out thread id support, re-tie resp signals to 0
 
 
 # CLINT (Core-local Interrupt Controller)
