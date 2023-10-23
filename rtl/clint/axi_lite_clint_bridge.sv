@@ -51,8 +51,8 @@ module axi_lite_clint_bridge #(
   // pass through read data on the read data channel
   assign axi.r_data = data_i;
   // // we do not support any errors so set response flag to all zeros
-  assign b.resp = 2'b0;
-  assign r.resp = 2'b0;
+  assign axi.b_resp = 2'b0;
+  assign axi.r_resp = 2'b0;
   // output data which we want to write to the slave
   assign data_o = axi.w_data;
   assign be_o = axi.w_strb;
