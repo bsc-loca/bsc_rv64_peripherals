@@ -30,7 +30,7 @@ module bsc_clint #(
     input logic testmode_i,
 
     // AXI Signals
-    axi_lite_if.in axi,
+    bsc_axi_lite_if.in axi,
 
     input  logic                rtc_i,        // Real-time clock in (usually 32.768 kHz)
     output logic [NR_CORES-1:0] timer_irq_o,  // Timer interrupts

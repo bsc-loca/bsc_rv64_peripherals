@@ -41,7 +41,7 @@ module bsc_plic #(
     input  logic         [NUM_SOURCES-1:0] irq_sources_i,
     output logic         [NUM_TARGETS-1:0] eip_targets_o,
 
-    axi_lite_if.in                         axi
+    bsc_axi_lite_if.in                         axi
 );
   // declare all local variables
   // gateway arrays always go from NUM_SOURCES to 1 because gateway ids start at 1

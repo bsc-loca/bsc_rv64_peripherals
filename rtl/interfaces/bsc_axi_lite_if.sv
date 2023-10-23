@@ -2,7 +2,7 @@
 // Code taken from Ariane Core (piton/design/chip/tile/ariane/core/include/axi_intf.sv)
 // Moved out so we don't have a dependency on ariane repo
 
-interface axi_lite_if #(
+interface bsc_axi_lite_if #(
     parameter int AXI_ADDR_WIDTH = 64,
     parameter int AXI_DATA_WIDTH = 64
 );
