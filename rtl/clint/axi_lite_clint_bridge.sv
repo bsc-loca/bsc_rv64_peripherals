@@ -45,21 +45,14 @@ module axi_lite_clint_bridge #(
   } state_t;
   state_t state_q, state_d;
 
-  // save the trans id, we will need it for reflection otherwise we are not plug compatible to the AXI standard
-  // logic [AXI_ID_WIDTH-1:0] trans_id_n, trans_id_q;
   // address register
   logic [AXI_ADDR_WIDTH-1:0] address_n, address_q;
 
   // pass through read data on the read data channel
   assign axi.r_data = data_i;
-  // send back the transaction id we've latched
-  // assign r_id   = trans_id_q;
-  // assign b_id   = trans_id_q;
-  // // set r_last to one as defined by the AXI4 - Lite standard
-  // assign r.last = 1'b1;
   // // we do not support any errors so set response flag to all zeros
-  // assign b.resp = 2'b0;
-  // assign r.resp = 2'b0;
+  assign b.resp = 2'b0;
+  assign r.resp = 2'b0;
   // output data which we want to write to the slave
   assign data_o = axi.w_data;
   assign be_o = axi.w_strb;
