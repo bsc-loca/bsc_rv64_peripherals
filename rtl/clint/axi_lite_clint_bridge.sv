@@ -26,7 +26,7 @@ module axi_lite_clint_bridge #(
 
     // AXI Signals
     // address write
-    AXI_LITE.in axi,
+    AXI_LITE.Slave axi,
 
     output logic [    AXI_ADDR_WIDTH-1:0] address_o,
     output logic                          en_o,       // transaction is valid
