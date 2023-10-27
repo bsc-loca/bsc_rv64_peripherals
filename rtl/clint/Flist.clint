@@ -1,3 +1,2 @@
 ./axi_lite_clint_bridge.sv
 ./bsc_clint.sv
-../interfaces/bsc_axi_lite_if.sv

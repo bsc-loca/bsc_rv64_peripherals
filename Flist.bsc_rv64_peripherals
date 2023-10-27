@@ -1,5 +1,4 @@
-./rtl/interfaces/axi_lite_if.sv
-./rtl/interfaces/reg_bus_if.sv
+./rtl/plic/reg_bus_if.sv
 ./rtl/clint/axi_lite_clint_bridge.sv
 ./rtl/clint/clint.sv
 ./rtl/plic/plic_claim_complete_tracker.sv

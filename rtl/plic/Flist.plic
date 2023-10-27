@@ -5,5 +5,4 @@
 ./plic_interface.sv
 ./bsc_plic.sv
 ./plic_target_slice.sv
-../interfaces/bsc_axi_lite_if.sv
-../interfaces/reg_bus_if.sv
+./reg_bus_if.sv
