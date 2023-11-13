@@ -34,6 +34,7 @@ module bsc_clint #(
 
     input  logic                rtc_i,        // Real-time clock in (usually 32.768 kHz)
     output logic [NR_CORES-1:0] timer_irq_o,  // Timer interrupts
+    output logic [63:0]         time_o,
     output logic [NR_CORES-1:0] ipi_o         // software interrupt (a.k.a inter-process-interrupt)
 );
   // register offset
@@ -182,6 +183,8 @@ module bsc_clint #(
   end
 
   assign ipi_o = msip_q;
+
+  assign time_o = mtime_q;
 
   // -------------
   // Assertions
