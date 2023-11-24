@@ -77,7 +77,7 @@ module bsc_plic #(
 
   logic [DATA_WIDTH-1:0] rword_d, rword_q;
 
-  assign rword_d = (reg_intf.valid && !reg_intf.write) ? reg_intf.rdata : rword_q;
+  assign rword_d = (reg_intf.out.valid && !reg_intf.out.write) ? reg_intf.out.rdata : rword_q;
   assign axi.r_data = rword_q;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : p_plic_regs
@@ -96,9 +96,9 @@ module bsc_plic #(
   always_comb begin : p_plic_if
     automatic logic [ADDR_WIDTH-1:0] waddr, raddr;
     // AXI-lite
-    axi.aw_ready   = reg_intf.ready;
-    axi.w_ready    = reg_intf.ready;
-    axi.ar_ready   = reg_intf.ready;
+    axi.aw_ready   = reg_intf.out.ready;
+    axi.w_ready    = reg_intf.out.ready;
+    axi.ar_ready   = reg_intf.out.ready;
 
     axi.r_valid    = 1'b0;
     axi.r_resp     = '0;
@@ -106,11 +106,11 @@ module bsc_plic #(
     axi.b_resp     = '0;
 
     // PLIC
-    reg_intf.valid = (axi.w_valid && axi.aw_valid) || axi.ar_valid;
-    reg_intf.wstrb = axi.w_strb;
-    reg_intf.write = 1'b0;
-    reg_intf.wdata = axi.w_data[ADDR_WIDTH-1:0];
-    reg_intf.addr  = axi.aw_addr[ADDR_WIDTH-1:0];
+    reg_intf.in.valid = (axi.w_valid && axi.aw_valid) || axi.ar_valid;
+    reg_intf.in.wstrb = axi.w_strb;
+    reg_intf.in.write = 1'b0;
+    reg_intf.in.wdata = axi.w_data[ADDR_WIDTH-1:0];
+    reg_intf.in.addr  = axi.aw_addr[ADDR_WIDTH-1:0];
 
     // default
     state_d        = state_q;
@@ -120,12 +120,12 @@ module bsc_plic #(
         axi.b_valid = axi.b_ready;
         axi.r_valid = axi.r_ready;
 
-        if (axi.w_valid && axi.aw_valid && reg_intf.ready) begin
-          reg_intf.write = 1'b1;
-          reg_intf.wstrb = axi.w_strb[3:0];
+        if (axi.w_valid && axi.aw_valid && reg_intf.out.ready) begin
+          reg_intf.in.write = 1'b1;
+          reg_intf.in.wstrb = axi.w_strb[3:0];
           state_d = WriteResp;
-        end else if (axi.ar_valid && reg_intf.ready) begin
-          reg_intf.addr = axi.ar_addr[ADDR_WIDTH-1:0];
+        end else if (axi.ar_valid && reg_intf.out.ready) begin
+          reg_intf.in.addr = axi.ar_addr[ADDR_WIDTH-1:0];
 
           state_d = ReadResp;
         end
