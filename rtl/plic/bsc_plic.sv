@@ -101,16 +101,16 @@ module bsc_plic #(
     axi.ar_ready   = reg_intf.out.ready;
 
     axi.r_valid    = 1'b0;
-    axi.r_resp     = '0;
+    axi.r_resp     = 1'b0;
     axi.b_valid    = 1'b0;
-    axi.b_resp     = '0;
+    axi.b_resp     = 1'b0;
 
     // PLIC
-    reg_intf.out.valid = (axi.w_valid && axi.aw_valid) || axi.ar_valid;
-    reg_intf.out.wstrb = axi.w_strb;
-    reg_intf.out.write = 1'b0;
-    reg_intf.out.wdata = axi.w_data[ADDR_WIDTH-1:0];
-    reg_intf.out.addr  = axi.aw_addr[ADDR_WIDTH-1:0];
+    reg_intf.valid = 1'b0;
+    reg_intf.wstrb = axi.w_strb;
+    reg_intf.write = 1'b0;
+    reg_intf.wdata = axi.w_data;
+    reg_intf.addr  = axi.aw_addr;
 
     // default
     state_d        = state_q;
@@ -120,14 +120,19 @@ module bsc_plic #(
         axi.b_valid = axi.b_ready;
         axi.r_valid = axi.r_ready;
 
-        if (axi.w_valid && axi.aw_valid && reg_intf.out.ready) begin
-          reg_intf.out.write = 1'b1;
-          reg_intf.out.wstrb = axi.w_strb[3:0];
-          state_d = WriteResp;
-        end else if (axi.ar_valid && reg_intf.out.ready) begin
-          reg_intf.out.addr = axi.ar_addr[ADDR_WIDTH-1:0];
-
-          state_d = ReadResp;
+        if (axi.w_valid && axi.aw_valid) begin
+          reg_intf.valid = 1'b1;
+          reg_intf.write = 1'b1;
+          reg_intf.wstrb = axi.w_strb[3:0];
+          if (reg_intf.ready) begin
+            state_d = WriteResp;
+          end
+        end else if (axi.ar_valid) begin
+          reg_intf.valid = 1'b1;
+          reg_intf.addr = axi.ar_addr;
+          if (reg_intf.ready) begin
+            state_d = ReadResp;
+          end
         end
       end
       WriteResp: begin
