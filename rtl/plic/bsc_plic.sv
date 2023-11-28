@@ -77,7 +77,7 @@ module bsc_plic #(
 
   logic [DATA_WIDTH-1:0] rword_d, rword_q;
 
-  assign rword_d = (reg_intf.out.valid && !reg_intf.out.write) ? reg_intf.out.rdata : rword_q;
+  assign rword_d = (reg_intf.in.valid && !reg_intf.in.write) ? reg_intf.in.rdata : rword_q;
   assign axi.r_data = rword_q;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : p_plic_regs
