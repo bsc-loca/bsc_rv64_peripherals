@@ -77,7 +77,6 @@ module bsc_plic #(
 
   logic [DATA_WIDTH-1:0] rword_d, rword_q;
 
-  assign rword_d = (reg_intf.in.valid && !reg_intf.in.write) ? reg_intf.out.rdata : rword_q;
   assign axi.r_data = rword_q;
 
   always_ff @(posedge clk_i or negedge rst_ni) begin : p_plic_regs
@@ -112,6 +111,8 @@ module bsc_plic #(
     reg_intf.out.wdata = axi.w_data;
     reg_intf.out.addr  = axi.aw_addr;
 
+    rword_d = rword_q;
+
     // default
     state_d        = state_q;
 
@@ -130,6 +131,7 @@ module bsc_plic #(
         end else if (axi.ar_valid) begin
           reg_intf.out.valid = 1'b1;
           reg_intf.out.addr = axi.ar_addr;
+          rword_d = reg_intf.out.rdata;
           if (reg_intf.in.ready) begin
             state_d = ReadResp;
           end
