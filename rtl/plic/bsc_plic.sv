@@ -95,9 +95,9 @@ module bsc_plic #(
   always_comb begin : p_plic_if
     automatic logic [ADDR_WIDTH-1:0] waddr, raddr;
     // AXI-lite
-    axi.aw_ready   = reg_intf.in.ready;
-    axi.w_ready    = reg_intf.in.ready;
-    axi.ar_ready   = reg_intf.in.ready;
+    axi.aw_ready   = reg_intf.ready;
+    axi.w_ready    = reg_intf.ready;
+    axi.ar_ready   = reg_intf.ready;
 
     axi.r_valid    = 1'b0;
     axi.r_resp     = 1'b0;
@@ -105,11 +105,11 @@ module bsc_plic #(
     axi.b_resp     = 1'b0;
 
     // PLIC
-    reg_intf.out.valid = 1'b0;
-    reg_intf.out.wstrb = axi.w_strb;
-    reg_intf.out.write = 1'b0;
-    reg_intf.out.wdata = axi.w_data;
-    reg_intf.out.addr  = axi.aw_addr;
+    reg_intf.valid = 1'b0;
+    reg_intf.wstrb = axi.w_strb;
+    reg_intf.write = 1'b0;
+    reg_intf.wdata = axi.w_data;
+    reg_intf.addr  = axi.aw_addr;
 
     rword_d = rword_q;
 
@@ -122,17 +122,17 @@ module bsc_plic #(
         axi.r_valid = axi.r_ready;
 
         if (axi.w_valid && axi.aw_valid) begin
-          reg_intf.out.valid = 1'b1;
-          reg_intf.out.write = 1'b1;
-          reg_intf.out.wstrb = axi.w_strb[3:0];
-          if (reg_intf.in.ready) begin
+          reg_intf.valid = 1'b1;
+          reg_intf.write = 1'b1;
+          reg_intf.wstrb = axi.w_strb[3:0];
+          if (reg_intf.ready) begin
             state_d = WriteResp;
           end
         end else if (axi.ar_valid) begin
-          reg_intf.out.valid = 1'b1;
-          reg_intf.out.addr = axi.ar_addr;
-          rword_d = reg_intf.out.rdata;
-          if (reg_intf.in.ready) begin
+          reg_intf.valid = 1'b1;
+          reg_intf.addr = axi.ar_addr;
+          rword_d = reg_intf.rdata;
+          if (reg_intf.ready) begin
             state_d = ReadResp;
           end
         end
