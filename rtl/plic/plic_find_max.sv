@@ -14,17 +14,20 @@
 //-- Author     : Gian Marti      <gimarti.student.ethz.ch>
 //-- Author     : Thomas Kramer   <tkramer.student.ethz.ch>
 //-- Author     : Thomas E. Benz  <tbenz.student.ethz.ch>
+//-- Author     : Alejandro Tafalla <atafalla@bsc.es>
 //-- Company    : Integrated Systems Laboratory, ETH Zurich
+//-- Company    : Barcelona Supercomputing Center
 //-- Created    : 2018-03-31
-//-- Last update: 2018-03-31
+//-- Last update: 2024-02-20
 //-- Platform   : ModelSim (simulation), Synopsys (synthesis)
 //-- Standard   : SystemVerilog IEEE 1800-2012
 //-------------------------------------------------------------------------------
 //-- Description: Find the element with the largest priority
 //-------------------------------------------------------------------------------
 //-- Revisions  :
-//-- Date        Version  Author  Description
-//-- 2018-03-31  2.0      tbenz   Created header
+//-- Date        Version  Author   Description
+//-- 2018-03-31  2.0      tbenz    Created header
+//-- 2024-02-20  3.0      atafalla Refactoring, fix linting issues
 //-------------------------------------------------------------------------------
 
 module plic_find_max #(
@@ -38,13 +41,13 @@ module plic_find_max #(
     output logic [      ID_BITWIDTH-1:0] identifier_of_largest_o
 );
 
-  localparam int max_stage = ($clog2(NUM_OPERANDS) - 1);
-  localparam int num_operands_aligned = 2 ** (max_stage + 1);
+  localparam int MaxStage = ($clog2(NUM_OPERANDS) - 1);
+  localparam int NumOperandsAligned = 2 ** (MaxStage + 1);
 
-  logic [num_operands_aligned-1:0][PRIORITY_BITWIDTH-1:0] priority_stages  [max_stage + 2];
-  logic [num_operands_aligned-1:0][      ID_BITWIDTH-1:0] identifier_stages[max_stage + 2];
+  logic [NumOperandsAligned-1:0][PRIORITY_BITWIDTH-1:0] priority_stages  [MaxStage + 2];
+  logic [NumOperandsAligned-1:0][      ID_BITWIDTH-1:0] identifier_stages[MaxStage + 2];
 
-  for (genvar operand = 0; operand < num_operands_aligned; operand++) begin
+  for (genvar operand = 0; operand < NumOperandsAligned; operand++) begin: g_operands_aligned
     if (operand < NUM_OPERANDS) begin
       assign priority_stages[0][operand]   = priorities_i[operand];
       assign identifier_stages[0][operand] = identifiers_i[operand];
@@ -54,22 +57,22 @@ module plic_find_max #(
     end
   end
 
-  for (genvar comparator_stage = max_stage; comparator_stage >= 0; comparator_stage--) begin
-    for (genvar stage_index = 0; stage_index < 2 ** comparator_stage; stage_index++) begin
+  for (genvar comparator_stage = MaxStage; comparator_stage >= 0; comparator_stage--) begin: g_comp_stage
+    for (genvar stage_index = 0; stage_index < 2 ** comparator_stage; stage_index++) begin: g_comp
       plic_comparator #(
           .ID_BITWIDTH      (ID_BITWIDTH),
           .PRIORITY_BITWIDTH(PRIORITY_BITWIDTH)
       ) comp_instance (
-          .left_priority_i       (priority_stages[max_stage-comparator_stage][2*stage_index]),
-          .right_priority_i      (priority_stages[max_stage-comparator_stage][2*stage_index+1]),
-          .left_identifier_i     (identifier_stages[max_stage-comparator_stage][2*stage_index]),
-          .right_identifier_i    (identifier_stages[max_stage-comparator_stage][2*stage_index+1]),
-          .larger_priority_o     (priority_stages[max_stage-(comparator_stage-1)][stage_index]),
-          .identifier_of_larger_o(identifier_stages[max_stage-(comparator_stage-1)][stage_index])
+          .left_priority_i       (priority_stages[MaxStage-comparator_stage][2*stage_index]),
+          .right_priority_i      (priority_stages[MaxStage-comparator_stage][2*stage_index+1]),
+          .left_identifier_i     (identifier_stages[MaxStage-comparator_stage][2*stage_index]),
+          .right_identifier_i    (identifier_stages[MaxStage-comparator_stage][2*stage_index+1]),
+          .larger_priority_o     (priority_stages[MaxStage-(comparator_stage-1)][stage_index]),
+          .identifier_of_larger_o(identifier_stages[MaxStage-(comparator_stage-1)][stage_index])
       );
     end
   end
 
-  assign largest_priority_o      = priority_stages[max_stage+1][0];
-  assign identifier_of_largest_o = identifier_stages[max_stage+1][0];
+  assign largest_priority_o      = priority_stages[MaxStage+1][0];
+  assign identifier_of_largest_o = identifier_stages[MaxStage+1][0];
 endmodule

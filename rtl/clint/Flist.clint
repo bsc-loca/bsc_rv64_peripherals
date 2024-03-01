@@ -1,2 +1,2 @@
-./axi_lite_clint_bridge.sv
-./bsc_clint.sv
+./clint_axi_wrapper.sv
+./clint.sv

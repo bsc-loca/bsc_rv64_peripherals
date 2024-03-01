@@ -14,9 +14,11 @@
 //-- Author     : Gian Marti      <gimarti.student.ethz.ch>
 //-- Author     : Thomas Kramer   <tkramer.student.ethz.ch>
 //-- Author     : Thomas E. Benz  <tbenz.student.ethz.ch>
+//-- Author     : Alejandro Tafalla <atafalla@bsc.es>
 //-- Company    : Integrated Systems Laboratory, ETH Zurich
+//-- Company    : Barcelona Supercomputing Center
 //-- Created    : 2018-03-31
-//-- Last update: 2018-03-31
+//-- Last update: 2024-02-20
 //-- Platform   : ModelSim (simulation), Synopsys (synthesis)
 //-- Standard   : SystemVerilog IEEE 1800-2012
 //-------------------------------------------------------------------------------
@@ -25,36 +27,36 @@
 //-- Revisions  :
 //-- Date        Version  Author  Description
 //-- 2018-03-31  2.0      tbenz   Created header
+//-- 2024-02-20  3.0      atafalla Refactoring, fix linting issues
 //-------------------------------------------------------------------------------
 
 // Note: The gateways are expected to be ordered by their IDs (ascending).
 // This resolves priority ties by choosing the gateway with the lower ID.
 module plic_target_slice #(
     parameter int PRIORITY_BITWIDTH = 8,
-    parameter int ID_BITWIDTH       = 8,
-    parameter int NUM_GATEWAYS      = 1
+    parameter int NUM_GATEWAYS      = 2,
+    localparam int IdBitwidth = $clog2(NUM_GATEWAYS + 1) // the +1 is because counting starts from 1 and goes to NUM_GATEWAYS+1
 ) (
     // Input signals from gateways.
     input  logic                         interrupt_pending_i    [NUM_GATEWAYS],
     input  logic [PRIORITY_BITWIDTH-1:0] interrupt_priority_i   [NUM_GATEWAYS],
-    input  logic [      ID_BITWIDTH-1:0] interrupt_id_i         [NUM_GATEWAYS],
+    input  logic [       IdBitwidth-1:0] interrupt_id_i         [NUM_GATEWAYS],
     input  logic                         interrupt_enable_i     [NUM_GATEWAYS],
     input  logic [PRIORITY_BITWIDTH-1:0] threshold_i,
     output logic                         ext_interrupt_present_o,
-    output logic [      ID_BITWIDTH-1:0] identifier_of_largest_o
+    output logic [       IdBitwidth-1:0] identifier_of_largest_o
 );
-
   logic [PRIORITY_BITWIDTH:0] interrupt_priority_masked[NUM_GATEWAYS];
 
 
   // Signals that represent the selected interrupt source.
   logic [PRIORITY_BITWIDTH:0] best_priority;
-  logic [    ID_BITWIDTH-1:0] best_id;
+  logic [     IdBitwidth-1:0] best_id;
 
   // Create a tree to find the best interrupt source.
   plic_find_max #(
       .NUM_OPERANDS     (NUM_GATEWAYS),
-      .ID_BITWIDTH      (ID_BITWIDTH),
+      .ID_BITWIDTH      (IdBitwidth),
       .PRIORITY_BITWIDTH(PRIORITY_BITWIDTH + 1)
   ) find_max_instance (
       .priorities_i           (interrupt_priority_masked),

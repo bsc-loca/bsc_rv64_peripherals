@@ -14,24 +14,27 @@
 //-- Author     : Gian Marti      <gimarti.student.ethz.ch>
 //-- Author     : Thomas Kramer   <tkramer.student.ethz.ch>
 //-- Author     : Thomas E. Benz  <tbenz.student.ethz.ch>
+//-- Author     : Alejandro Tafalla <atafalla@bsc.es>
 //-- Company    : Integrated Systems Laboratory, ETH Zurich
+//-- Company    : Barcelona Supercomputing Center
 //-- Created    : 2018-03-31
-//-- Last update: 2018-03-31
+//-- Last update: 2024-02-20
 //-- Platform   : ModelSim (simulation), Synopsys (synthesis)
 //-- Standard   : SystemVerilog IEEE 1800-2012
 //-------------------------------------------------------------------------------
 //-- Description: Comparator
 //-------------------------------------------------------------------------------
 //-- Revisions  :
-//-- Date        Version  Author  Description
-//-- 2018-03-31  2.0      tbenz   Created header
+//-- Date        Version  Author   Description
+//-- 2018-03-31  2.0      tbenz    Created header
+//-- 2024-02-20  3.0      atafalla Refactoring, fix linting issues, follow spec when equal priorities
 //-------------------------------------------------------------------------------
 
 // find larger operand (value and identifier)
-// chooses the left operand on equality
+// chooses the operand with largest ID on priority equality
 module plic_comparator #(
-    parameter int ID_BITWIDTH       = -1,
-    parameter int PRIORITY_BITWIDTH = -1
+    parameter int ID_BITWIDTH       = 1,
+    parameter int PRIORITY_BITWIDTH = 1
 ) (
     input  logic [PRIORITY_BITWIDTH-1:0] left_priority_i,
     input  logic [PRIORITY_BITWIDTH-1:0] right_priority_i,
@@ -42,12 +45,20 @@ module plic_comparator #(
 );
 
   always_comb begin : proc_compare
-    if (left_priority_i >= right_priority_i) begin
+    if (left_priority_i > right_priority_i) begin
       larger_priority_o      = left_priority_i;
       identifier_of_larger_o = left_identifier_i;
-    end else begin
+    end else if (left_priority_i < right_priority_i) begin
       larger_priority_o      = right_priority_i;
       identifier_of_larger_o = right_identifier_i;
+    end else begin
+      if (left_identifier_i > right_identifier_i) begin
+        larger_priority_o      = left_priority_i;
+        identifier_of_larger_o = left_identifier_i;
+      end else begin
+        larger_priority_o      = right_priority_i;
+        identifier_of_larger_o = right_identifier_i;
+      end
     end
   end
 

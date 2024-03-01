@@ -3,6 +3,5 @@
 ./plic_find_max.sv
 ./plic_gateway.sv
 ./plic_interface.sv
-./bsc_plic.sv
-./plic_target_slice.sv
-./reg_bus_if.sv
+./plic.sv
+./plic_axi_wrapper.sv

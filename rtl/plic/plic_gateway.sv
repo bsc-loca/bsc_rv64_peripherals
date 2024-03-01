@@ -14,17 +14,19 @@
 //-- Author     : Gian Marti      <gimarti.student.ethz.ch>
 //-- Author     : Thomas Kramer   <tkramer.student.ethz.ch>
 //-- Author     : Thomas E. Benz  <tbenz.student.ethz.ch>
+//-- Author     : Alejandro Tafalla <atafalla@bsc.es>
 //-- Company    : Integrated Systems Laboratory, ETH Zurich
 //-- Created    : 2018-03-31
-//-- Last update: 2018-03-31
+//-- Last update: 2024-02-20
 //-- Platform   : ModelSim (simulation), Synopsys (synthesis)
 //-- Standard   : SystemVerilog IEEE 1800-2012
 //-------------------------------------------------------------------------------
 //-- Description: Implementation of the Irq Gateway
 //-------------------------------------------------------------------------------
 //-- Revisions  :
-//-- Date        Version  Author  Description
-//-- 2018-03-31  2.0      tbenz   Created header
+//-- Date        Version  Author   Description
+//-- 2018-03-31  2.0      tbenz    Created header
+//-- 2024-02-20  3.0      atafalla Refactoring, fix linting issues
 //-------------------------------------------------------------------------------
 
 // the gateway does enable or disable itself depending on the signals claim_i, completed_i
