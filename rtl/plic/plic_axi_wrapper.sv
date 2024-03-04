@@ -1,3 +1,7 @@
+// This AXI module is non-compliant. It can't handle 8B unaligned accesses and strobes of
+// the 4 most significant bytes.
+
+
 module plic_axi_wrapper #(
     parameter int ADDR_WIDTH         = 64,
     parameter int DATA_WIDTH         = 64,
@@ -49,7 +53,7 @@ module plic_axi_wrapper #(
   state_t state_d, state_q;
   logic [DATA_WIDTH-1:0] rword_d, rword_q;
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : p_plic_regs
+  always_ff @(posedge clk_i) begin : p_plic_regs
     if (!rst_ni) begin
       state_q <= Idle;
       rword_q <= '0;
@@ -69,9 +73,7 @@ module plic_axi_wrapper #(
     axi_arready = 1'b1;
 
     axi_rvalid  = 1'b0;
-    axi_rresp   = 2'b0;
     axi_bvalid  = 1'b0;
-    axi_bresp   = 2'b0;
 
     // PLIC
     en          = 1'b0;
@@ -91,58 +93,15 @@ module plic_axi_wrapper #(
           en = 1'b1;
           we = 1'b1;
           addr  = axi_awaddr[31:0];
-          // this is a 64bit write, need to write second 32bit chunk in second cycle
-          if (|axi_wstrb[7:4] && |axi_awaddr[2:0]) begin
-            be    = axi_wstrb[7:4];
-            wdata = axi_wdata[63:32];
-            state_d = WriteResp;
-          end else begin
-            be    = axi_wstrb[3:0];
-            wdata = axi_wdata[31:0];
-            state_d = WriteSecond;
-          end
+          be    = axi_wstrb[3:0];
+          wdata = axi_wdata[31:0];
+          state_d = WriteResp;
         end else if (axi_arvalid) begin
           en = 1'b1;
           addr  = axi_araddr[31:0];
-          if (|axi_araddr[2:0]) begin
-            rword_d[31:0]  = 'b0;
-            rword_d[63:32] = rdata;
-            state_d = ReadResp;
-          end else begin
-            rword_d[31:0]  = rdata;
-            rword_d[63:32] = 'b0;
-            // this is a 64bit read, need to read second 32bit chunk in second cycle
-            state_d = ReadSecond;
-          end
-        end
-      end
-      // write high word
-      WriteSecond: begin
-        axi_awready = 1'b0;
-        axi_wready  = 1'b0;
-        axi_arready = 1'b0;
-        addr    = axi_awaddr[31:0] + 32'h4;
-        wdata   = axi_wdata[31:0];
-        be = axi_wstrb[3:0];
-        if (axi_bready) begin
-          en   = 1'b1;
-          we   = 1'b1;
-          axi_bvalid = 1'b1;
-          state_d = Idle;
-        end
-      end
-      // read high word
-      ReadSecond: begin
-        axi_awready = 1'b0;
-        axi_wready  = 1'b0;
-        axi_arready = 1'b0;
-        addr    = axi_araddr[31:0] + 32'h4;
-        rword_d[63:32] = rdata;
-        rword_d[31:0] = 'b0;
-        if (axi_rready) begin
-          en   = 1'b1;
-          axi_rvalid  = 1'b1;
-          state_d = Idle;
+          rword_d[31:0]  = rdata;
+          rword_d[63:32] = 'b0;
+          state_d = ReadResp;
         end
       end
       WriteResp: begin
@@ -150,6 +109,10 @@ module plic_axi_wrapper #(
         axi_wready  = 1'b0;
         axi_arready = 1'b0;
         if (axi_bready) begin
+          axi_bresp = 2'b0;
+          if (error) begin
+            axi_bresp = 2'b10; //SLVERR
+          end
           axi_bvalid = 1'b1;
           state_d = Idle;
         end
@@ -159,6 +122,10 @@ module plic_axi_wrapper #(
         axi_wready  = 1'b0;
         axi_arready = 1'b0;
         if (axi_rready) begin
+          axi_rresp = 2'b0;
+          if (error) begin
+            axi_rresp = 2'b10; // SLVERR
+          end
           axi_rvalid  = 1'b1;
           state_d = Idle;
         end

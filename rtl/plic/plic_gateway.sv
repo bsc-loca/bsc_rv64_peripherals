@@ -46,7 +46,7 @@ module plic_gateway (
 
   assign irq_trigger = (~wait_completion_q | completed_i) & irq_source_i;
 
-  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_update_ff
+  always_ff @(posedge clk_i) begin : proc_update_ff
     if (~rst_ni) begin
       irq_pending_q     <= 1'b0;
       wait_completion_q <= 1'b0;

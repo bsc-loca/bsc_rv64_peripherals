@@ -60,7 +60,8 @@ module plic_interface #(
     output logic [DATA_WIDTH-1:0] rdata,
     output logic                  error
 );
-  localparam int BitsGatewayBundles = NumGatewayBundles==1 ? 1 : $clog2(NumGatewayBundles);
+  localparam int BitsGatewayBundles = ((NumGatewayBundles==1) ? 1 : $clog2(NumGatewayBundles));
+  localparam int BitsTargets = ((NUM_TARGETS==1) ? 1 : $clog2(NUM_TARGETS));
   //define ennumerated types
   // the address mapping will primarily check what
   // function should be performed
@@ -114,7 +115,7 @@ module plic_interface #(
   always_comb begin
     pending_array_tmp[0] = 1'b0;
 
-    for (integer i = 1; i < NUM_GATEWAYS + 1; ++i) begin
+    for (integer i = 1; i < (NUM_GATEWAYS + 1); ++i) begin
       pending_array_tmp[i] = pending_array_i[i-1];
     end
   end
@@ -123,8 +124,8 @@ module plic_interface #(
   always_comb begin
     for (integer bundle = 0; bundle < NumGatewayBundles; bundle++) begin
       for (integer ip_bit = 0; ip_bit < DATA_WIDTH; ip_bit++) begin
-        if ((bundle * DATA_WIDTH + ip_bit) < NUM_GATEWAYS + 1) begin
-          irq_pending_bundle[bundle][ip_bit] = pending_array_tmp[bundle*DATA_WIDTH+ip_bit];
+        if (((bundle * DATA_WIDTH) + ip_bit) < NUM_GATEWAYS + 1) begin
+          irq_pending_bundle[bundle][ip_bit] = pending_array_tmp[(bundle*DATA_WIDTH)+ip_bit];
         end else begin
           irq_pending_bundle[bundle][ip_bit] = '0;
         end
@@ -144,10 +145,10 @@ module plic_interface #(
   // wire up irq enable ffs to tmp
   for (genvar bundle = 0; bundle < NumGatewayBundles; bundle++) begin
     for (genvar target = 0; target < NUM_TARGETS; target++) begin
-      for (genvar byte_in_word = 0; byte_in_word < DATA_WIDTH / 8; byte_in_word++) begin
+      for (genvar byte_in_word = 0; byte_in_word < (DATA_WIDTH / 8); byte_in_word++) begin
         for (genvar enable_bit = 0; enable_bit < 8; enable_bit++) begin
-          if (bundle * DATA_WIDTH + byte_in_word * 8 + enable_bit < NUM_GATEWAYS + 1) begin
-            assign irq_enables_tmp[bundle * DATA_WIDTH + byte_in_word * 8 + enable_bit][target] = ena_bundles_q[bundle][target][byte_in_word][enable_bit];
+          if (((bundle * DATA_WIDTH) + (byte_in_word * 8) + enable_bit) < (NUM_GATEWAYS + 1)) begin
+            assign irq_enables_tmp[(bundle * DATA_WIDTH) + (byte_in_word * 8) + enable_bit][target] = ena_bundles_q[bundle][target][byte_in_word][enable_bit];
           end
         end
       end
@@ -167,7 +168,7 @@ module plic_interface #(
         // in order to grant or deny access, we have to check if the gateway
         // in question really exist.
         // Gateway 0 does not exist, so return an error
-        if (page_word_offset <= $bits(page_word_offset)'(NUM_GATEWAYS) && page_word_offset > 0) begin  //the gateway in question exists
+        if ((page_word_offset <= $bits(page_word_offset)'($unsigned(NUM_GATEWAYS))) && (page_word_offset > 0)) begin  //the gateway in question exists
           // set the current operation to be an access to the priority registers
           funct = PRI;
         end
@@ -175,22 +176,22 @@ module plic_interface #(
       end else if (page_address[13:0] == 1) begin
         // the page_word_offset tells us now, which word we have to consider,
         // the word, which includes the IP bit in question should be returned
-        if (page_word_offset < $bits(page_word_offset)'(NumGatewayBundles)) begin
+        if (page_word_offset < $bits(page_word_offset)'($unsigned(NumGatewayBundles))) begin
           funct = IPA;
         end
         // access of the enable bits for each target
       end else if (page_address[13:9] == 0) begin
         // the bottom part page_word_offset now tells us which gateway bundle we have to consider
         // part of the page_address and the upper part of the page_word_offset give us the target nr.
-        if (page_offset[6:$clog2(Bpw)] < (6-$clog2(Bpw)+1)'(NumGatewayBundles)) begin
-          if (({page_address[8:0], page_offset[11:7]} - 14'd64) < 14'(NUM_TARGETS)) begin
+        if (page_offset[6:$clog2(Bpw)+1] < (6-$clog2(Bpw))'($unsigned(NumGatewayBundles))) begin
+          if (({page_address[8:0], page_offset[11:7]} - 14'd64) < 14'($unsigned(NUM_TARGETS))) begin
             funct = IEB;
           end
         end
         // priority / claim / complete
       end else begin
         // page address - 0h20 gives the target number
-        if (page_address[13:0] - 14'h200 < 14'(NUM_TARGETS)) begin
+        if ((page_address[13:0] - 14'h200) < 14'($unsigned(NUM_TARGETS))) begin
           // check lowest bit of the page_word_offset to get the exact function
           if (page_word_offset == 0) begin
             funct = THR;
@@ -220,13 +221,13 @@ module plic_interface #(
       PRI: begin
         // read case
         if (en & !we) begin
-          rdata = {{(DATA_WIDTH - PARAMETER_BITWIDTH) {1'b0}}, priorities_q[$clog2(NUM_GATEWAYS)'(page_word_offset-1)]};
+          rdata = {{(DATA_WIDTH - PARAMETER_BITWIDTH) {1'b0}}, priorities_q[BitsTargets'(page_word_offset-10'd1)]};
         end else if (en & we) begin
           for (integer byte_in_word = 0; byte_in_word < Bpw; byte_in_word++) begin
             if (be[byte_in_word]) begin
               for (integer b = 0; b < 8; b++) begin
                 if (byte_in_word*8+b < PARAMETER_BITWIDTH) begin
-                  priorities_d[$clog2(NUM_GATEWAYS)'(page_word_offset-1)][byte_in_word*8+b+:1] = wdata[byte_in_word*8+b+:1];
+                  priorities_d[BitsTargets'(page_word_offset-10'd1)][byte_in_word*8+b+:1] = wdata[byte_in_word*8+b+:1];
                 end
               end
             end
@@ -246,13 +247,13 @@ module plic_interface #(
         // read case
         if (en & !we) begin
           for (integer byte_in_word = 0; byte_in_word < DATA_WIDTH / 8; byte_in_word++) begin
-            rdata[8*(byte_in_word)+:8] = ena_bundles_q[BitsGatewayBundles'(page_offset[6:$clog2(Bpw)])][$clog2(NUM_TARGETS)'({page_address[8:0], page_offset[11:7]}-64)][byte_in_word];
+            rdata[8*(byte_in_word)+:8] = ena_bundles_q[BitsGatewayBundles'(page_offset[6:$clog2(Bpw)])][BitsTargets'({page_address[8:0], page_offset[11:7]}-14'd64)][byte_in_word];
           end
         end else if (en & we) begin
           for (integer byte_in_word = 0; byte_in_word < DATA_WIDTH / 8; byte_in_word++) begin
             if (be[byte_in_word]) begin
               ena_bundles_d[BitsGatewayBundles'(page_offset[6:$clog2(Bpw)])]
-                  [$clog2(NUM_TARGETS)'({page_address[8:0], page_offset[11:7]}-64)][byte_in_word] =
+                  [BitsTargets'({page_address[8:0], page_offset[11:7]}-14'd64)][byte_in_word] =
                   wdata[8*(byte_in_word)+:8];
             end
           end
@@ -261,22 +262,22 @@ module plic_interface #(
       THR: begin
         // read case
         if (en & !we) begin
-          rdata = {{(DATA_WIDTH - PARAMETER_BITWIDTH) {1'b0}}, thresholds_q[$clog2(NUM_TARGETS)'(page_address[13:0]-'h200)]};
+          rdata = {{(DATA_WIDTH - PARAMETER_BITWIDTH) {1'b0}}, thresholds_q[BitsTargets'(page_address[13:0]-14'h200)]};
           // write case
         end else if (be != 0) begin
-          thresholds_d[$size(thresholds_d)'(page_address[13:0]-'h200)] = wdata[PARAMETER_BITWIDTH-1:0];
+          thresholds_d[BitsTargets'(page_address[13:0]-14'h200)] = wdata[PARAMETER_BITWIDTH-1:0];
         end
       end
 
       CCP: begin
         // read case
         if (en & !we) begin
-          target_irq_claims_o[IdBitwidth'(page_address[13:0]-'h200)] = 1;
-          rdata = {{(DATA_WIDTH - IdBitwidth) {1'b0}}, id_of_largest_priority_q[IdBitwidth'(page_address[13:0]-'h200)]};
+          target_irq_claims_o[BitsTargets'(page_address[13:0]-14'h200)] = 1;
+          rdata = {{(DATA_WIDTH - IdBitwidth) {1'b0}}, id_of_largest_priority_q[BitsTargets'(page_address[13:0]-14'h200)]};
           // write case
         end else if (en & we) begin
-          target_irq_completes_o[IdBitwidth'(page_address[13:0]-'h200)] = 1;
-          target_irq_completes_id_o[IdBitwidth'(page_address[13:0]-'h200)] = wdata[IdBitwidth-1:0];
+          target_irq_completes_o[BitsTargets'(page_address[13:0]-14'h200)] = 1;
+          target_irq_completes_id_o[BitsTargets'(page_address[13:0]-14'h200)] = wdata[IdBitwidth-1:0];
         end
       end
 
@@ -294,7 +295,7 @@ module plic_interface #(
   end
 
   for (genvar gateway = 0; gateway < NUM_GATEWAYS; ++gateway) begin
-    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_update_prio_ff
+    always_ff @(posedge clk_i) begin : proc_update_prio_ff
       if (~rst_ni) begin
         priorities_q[gateway] <= '0;
       end else begin
@@ -304,7 +305,7 @@ module plic_interface #(
   end
 
   // store data in flip flops
-  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_update_ff
+  always_ff @(posedge clk_i) begin : proc_update_ff
     if (~rst_ni) begin  // set all registers to 0
       for (integer bundle = 0; bundle < NumGatewayBundles; bundle++)
         for (integer target = 0; target < NUM_TARGETS; target++)
