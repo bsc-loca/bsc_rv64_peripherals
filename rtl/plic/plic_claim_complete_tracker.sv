@@ -65,7 +65,7 @@ module plic_claim_complete_tracker #(
     assign complete_id = target_irq_completes_identifier_i[counter];
     assign id = identifier_of_largest_priority_per_target[counter];
 
-    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_target
+    always_ff @(posedge clk_i) begin : proc_target
       if (~rst_ni) begin
         // claimed_gateways_q[counter]  <= '0;
         claim_array[counter]         <= '0;

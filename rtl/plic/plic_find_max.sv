@@ -58,7 +58,7 @@ module plic_find_max #(
   end
 
   for (genvar comparator_stage = MaxStage; comparator_stage >= 0; comparator_stage--) begin: g_comp_stage
-    for (genvar stage_index = 0; stage_index < 2 ** comparator_stage; stage_index++) begin: g_comp
+    for (genvar stage_index = 0; stage_index < (2 ** comparator_stage); stage_index++) begin: g_comp
       plic_comparator #(
           .ID_BITWIDTH      (ID_BITWIDTH),
           .PRIORITY_BITWIDTH(PRIORITY_BITWIDTH)

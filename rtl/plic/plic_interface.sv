@@ -36,7 +36,7 @@ module plic_interface #(
     parameter int NUM_TARGETS        = 2,   // number of target slices
     parameter int NUM_GATEWAYS       = 2,    // number of gateways
     localparam int NumGatewayBundles = (NUM_GATEWAYS+1-1) / DATA_WIDTH + 1,     // how many bundles we have to consider
-    localparam int BitsGatewaysBundles = $bits(NumGatewayBundles),
+    // localparam int BitsGatewaysBundles = $bits(NumGatewayBundles),
     localparam int Bpw = DATA_WIDTH / 8,  // how many bytes a data word consist of
     localparam int IdBitwidth = $clog2(NUM_GATEWAYS + 1) // the +1 is because counting starts from 1 and goes to NUM_GATEWAYS+1
 ) (
@@ -62,6 +62,7 @@ module plic_interface #(
 );
   localparam int BitsGatewayBundles = ((NumGatewayBundles==1) ? 1 : $clog2(NumGatewayBundles));
   localparam int BitsTargets = ((NUM_TARGETS==1) ? 1 : $clog2(NUM_TARGETS));
+  localparam int BitsGateways = ((NUM_GATEWAYS==1) ? 1 : $clog2(NUM_GATEWAYS));
   //define ennumerated types
   // the address mapping will primarily check what
   // function should be performed
@@ -106,7 +107,7 @@ module plic_interface #(
 
     // assign addresses
     page_address = addr[ADDR_WIDTH-1:12];
-    page_offset = addr[11:0];
+    page_offset[11:0] = addr[11:0];
     page_word_offset = addr[11:2];
     word_offset = addr[1:0];
   end
@@ -124,7 +125,7 @@ module plic_interface #(
   always_comb begin
     for (integer bundle = 0; bundle < NumGatewayBundles; bundle++) begin
       for (integer ip_bit = 0; ip_bit < DATA_WIDTH; ip_bit++) begin
-        if (((bundle * DATA_WIDTH) + ip_bit) < NUM_GATEWAYS + 1) begin
+        if (((bundle * DATA_WIDTH) + ip_bit) < (NUM_GATEWAYS + 1)) begin
           irq_pending_bundle[bundle][ip_bit] = pending_array_tmp[(bundle*DATA_WIDTH)+ip_bit];
         end else begin
           irq_pending_bundle[bundle][ip_bit] = '0;
@@ -135,7 +136,7 @@ module plic_interface #(
 
   // wire up irq enables outputs
   always_comb begin
-    for (integer i = 1; i < NUM_GATEWAYS + 1; ++i) begin
+    for (integer i = 1; i < (NUM_GATEWAYS + 1); ++i) begin
       for (integer target = 0; target < NUM_TARGETS; ++target) begin
         irq_enables_o[i-1][target] = irq_enables_tmp[i][target];
       end
@@ -221,13 +222,13 @@ module plic_interface #(
       PRI: begin
         // read case
         if (en & !we) begin
-          rdata = {{(DATA_WIDTH - PARAMETER_BITWIDTH) {1'b0}}, priorities_q[BitsTargets'(page_word_offset-10'd1)]};
+          rdata = {{(DATA_WIDTH - PARAMETER_BITWIDTH) {1'b0}}, priorities_q[BitsGateways'(page_word_offset-10'd1)]};
         end else if (en & we) begin
           for (integer byte_in_word = 0; byte_in_word < Bpw; byte_in_word++) begin
             if (be[byte_in_word]) begin
               for (integer b = 0; b < 8; b++) begin
-                if (byte_in_word*8+b < PARAMETER_BITWIDTH) begin
-                  priorities_d[BitsTargets'(page_word_offset-10'd1)][byte_in_word*8+b+:1] = wdata[byte_in_word*8+b+:1];
+                if (((byte_in_word*8)+b) < PARAMETER_BITWIDTH) begin
+                  priorities_d[BitsGateways'(page_word_offset-10'd1)][(byte_in_word*8)+b+:1] = wdata[(byte_in_word*8)+b+:1];
                 end
               end
             end
@@ -246,11 +247,11 @@ module plic_interface #(
       IEB: begin
         // read case
         if (en & !we) begin
-          for (integer byte_in_word = 0; byte_in_word < DATA_WIDTH / 8; byte_in_word++) begin
+          for (integer byte_in_word = 0; byte_in_word < (DATA_WIDTH / 8); byte_in_word++) begin
             rdata[8*(byte_in_word)+:8] = ena_bundles_q[BitsGatewayBundles'(page_offset[6:$clog2(Bpw)])][BitsTargets'({page_address[8:0], page_offset[11:7]}-14'd64)][byte_in_word];
           end
         end else if (en & we) begin
-          for (integer byte_in_word = 0; byte_in_word < DATA_WIDTH / 8; byte_in_word++) begin
+          for (integer byte_in_word = 0; byte_in_word < (DATA_WIDTH / 8); byte_in_word++) begin
             if (be[byte_in_word]) begin
               ena_bundles_d[BitsGatewayBundles'(page_offset[6:$clog2(Bpw)])]
                   [BitsTargets'({page_address[8:0], page_offset[11:7]}-14'd64)][byte_in_word] =
@@ -309,7 +310,7 @@ module plic_interface #(
     if (~rst_ni) begin  // set all registers to 0
       for (integer bundle = 0; bundle < NumGatewayBundles; bundle++)
         for (integer target = 0; target < NUM_TARGETS; target++)
-          for (integer byte_in_word = 0; byte_in_word < DATA_WIDTH / 8; byte_in_word++)
+          for (integer byte_in_word = 0; byte_in_word < (DATA_WIDTH / 8); byte_in_word++)
             ena_bundles_q[bundle][target][byte_in_word] <= 0;
 
       for (integer target = 0; target < NUM_TARGETS; target++) begin
@@ -322,8 +323,8 @@ module plic_interface #(
       id_of_largest_priority_q <= id_of_largest_priority_d;
       for (integer bundle = 0; bundle < NumGatewayBundles; bundle++) begin
         for (integer target = 0; target < NUM_TARGETS; target++) begin 
-          for (integer byte_in_word = 0; byte_in_word < DATA_WIDTH / 8; byte_in_word++) begin
-            if (bundle == 0 && byte_in_word == 0) begin
+          for (integer byte_in_word = 0; byte_in_word < (DATA_WIDTH / 8); byte_in_word++) begin
+            if ((bundle == 0) && (byte_in_word == 0)) begin
               ena_bundles_q[bundle][target][byte_in_word] <= {ena_bundles_d[bundle][target][byte_in_word][7:1], 1'b0};
             end else begin
               ena_bundles_q[bundle][target][byte_in_word] <= ena_bundles_d[bundle][target][byte_in_word];

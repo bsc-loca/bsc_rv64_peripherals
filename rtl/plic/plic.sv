@@ -37,9 +37,7 @@ module plic #(
     localparam int ADDR_WIDTH = 32,
     localparam int DATA_WIDTH = 32,
     localparam int Bpw = DATA_WIDTH / 8,  // how many bytes a data word consist of
-    localparam int RegWidth      = 64,
-    localparam int IdBitwidth    = $clog2(NUM_SOURCES+1),
-    localparam int ParamBitwidth = 2
+    localparam int IdBitwidth    = $clog2(NUM_SOURCES+1)
 ) (
     input  logic                           clk_i,
     input  logic                           rst_ni,

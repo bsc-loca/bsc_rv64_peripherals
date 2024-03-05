@@ -68,11 +68,11 @@ module plic_target_slice #(
 
   // Compare the priority of the best interrupt source to the threshold.
   always_comb begin : proc_compare_threshold
-    if ((best_priority - 1 > threshold_i) && (best_priority != '0)) begin
+    if (((best_priority - 1) > threshold_i) && (best_priority != '0)) begin
       ext_interrupt_present_o = 1;
       identifier_of_largest_o = best_id;
     end else begin
-      if ((best_priority - 1 <= threshold_i) && (best_priority != '0)) begin
+      if (((best_priority - 1) <= threshold_i) && (best_priority != '0)) begin
         ext_interrupt_present_o = 0;
         identifier_of_largest_o = best_id;
       end else begin

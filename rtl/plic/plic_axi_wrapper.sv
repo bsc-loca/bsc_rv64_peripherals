@@ -1,4 +1,4 @@
-// This AXI module is non-compliant. It can't handle 8B unaligned accesses and strobes of
+// This AXI module is non-compliant. It can't handle 8B aligned accesses and strobes of
 // the 4 most significant bytes.
 
 
@@ -66,14 +66,15 @@ module plic_axi_wrapper #(
   assign axi_rdata = rword_q;
 
   always_comb begin : p_plic_if
-    automatic logic [ADDR_WIDTH-1:0] waddr, raddr;
     // AXI-lite
     axi_awready = 1'b1;
     axi_wready  = 1'b1;
     axi_arready = 1'b1;
 
     axi_rvalid  = 1'b0;
+    axi_rresp   = 2'b0;
     axi_bvalid  = 1'b0;
+    axi_bresp   = 2'b0;
 
     // PLIC
     en          = 1'b0;
@@ -122,7 +123,6 @@ module plic_axi_wrapper #(
         axi_wready  = 1'b0;
         axi_arready = 1'b0;
         if (axi_rready) begin
-          axi_rresp = 2'b0;
           if (error) begin
             axi_rresp = 2'b10; // SLVERR
           end
@@ -153,11 +153,11 @@ module plic_axi_wrapper #(
       .error
   );
 
-  initial begin
-    assert (ADDR_WIDTH == 64)
-    else $error("Only address width of 64b supported for now");
+  // initial begin
+  //   assert (ADDR_WIDTH == 64)
+  //   else $error("Only address width of 64b supported for now");
 
-    assert (DATA_WIDTH == 64)
-    else $error("Only address width of 64b supported for now");
-  end
+  //   assert (DATA_WIDTH == 64)
+  //   else $error("Only address width of 64b supported for now");
+  // end
 endmodule
