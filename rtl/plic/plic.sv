@@ -70,12 +70,30 @@ module plic #(
   logic target_irq_completes[NUM_TARGETS];
   logic [IdBitwidth-1:0] target_irq_completes_id[NUM_TARGETS];
 
+  logic [NUM_SOURCES-1:0] irq_sources_int;
+
+  generate
+    for (genvar i = 0; i < NUM_SOURCES; i++) begin : g_irq_sync
+        logic [1:0] reg_q;
+
+        assign irq_sources_int[i] = reg_q[1];
+
+        always_ff @(posedge clk_i) begin
+          if (!rst_ni) begin
+            reg_q <= 'h0;
+          end else begin
+            reg_q <= {reg_q[0], irq_sources_i[i]};
+          end
+        end
+    end
+  endgenerate
+
   //instantiate and connect gateways
   for (genvar counter = 0; counter < NUM_SOURCES; counter++) begin : gen_plic_gateway
     plic_gateway plic_gateway_instance (
         .clk_i        (clk_i),
         .rst_ni       (rst_ni),
-        .irq_source_i (irq_sources_i[counter]),
+        .irq_source_i (irq_sources_int[counter]),
         .claim_i      (gateway_claimed[counter]),
         .completed_i  (gateway_completed[counter]),
         .irq_pending_o(gateway_irq_pendings[counter])
