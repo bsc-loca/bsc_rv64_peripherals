@@ -46,6 +46,7 @@ module plic_claim_complete_tracker #(
     input logic                  target_irq_completes_i                   [NUM_TARGETS],
     input logic [IdBitwidth-1:0] target_irq_completes_identifier_i        [NUM_TARGETS],
 
+    output logic flush_cmp_pipeline_o   [NUM_TARGETS],
     output logic gateway_irq_claims_o   [NUM_GATEWAYS],
     output logic gateway_irq_completes_o[NUM_GATEWAYS]
 );
@@ -57,6 +58,7 @@ module plic_claim_complete_tracker #(
   logic [NUM_GATEWAYS:0] claim_array        [NUM_TARGETS];
   logic [NUM_GATEWAYS:0] save_claims_array_q[NUM_TARGETS];
   logic [NUM_GATEWAYS:0] complete_array     [NUM_TARGETS];
+  logic                  flush_cmp_pipeline [NUM_TARGETS];
 
   // for handling claims
   for (genvar counter = 0; counter < NUM_TARGETS; counter++) begin: g_target_claim
@@ -65,16 +67,21 @@ module plic_claim_complete_tracker #(
     assign complete_id = target_irq_completes_identifier_i[counter];
     assign id = identifier_of_largest_priority_per_target[counter];
 
-    always_ff @(posedge clk_i) begin : proc_target
+    assign flush_cmp_pipeline_o[counter] = target_irq_claims_i[counter] | flush_cmp_pipeline[counter];
+
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_target
       if (~rst_ni) begin
         // claimed_gateways_q[counter]  <= '0;
         claim_array[counter]         <= '0;
         save_claims_array_q[counter] <= '0;
         complete_array[counter]      <= '0;
+        flush_cmp_pipeline[counter]  <= '0;
       end else begin
         // if a claim is issued, forward it to gateway with highest priority for the claiming target
         if (target_irq_claims_i[counter]) begin
           claim_array[counter][id]         <= 1'b1;
+
+          flush_cmp_pipeline[counter] <= 1'b1;  // Stall/ flush the comparator pipeline
 
           // save claim for later when the complete-notification arrives
           save_claims_array_q[counter][id] <= 1'b1;
@@ -89,9 +96,12 @@ module plic_claim_complete_tracker #(
           // this target and forward the
           // complete message to that gateway. if no claim has previously been issued, the
           // complete message is ignored
-          if (target_irq_completes_i[counter] && save_claims_array_q[counter][complete_id]) begin
-            complete_array[counter][complete_id]      <= 1'b1;
-            save_claims_array_q[counter][complete_id] <= 1'b0;
+          if (target_irq_completes_i[counter]) begin
+            if (save_claims_array_q[counter][complete_id]) begin
+              complete_array[counter][complete_id]      <= 1'b1;
+              save_claims_array_q[counter][complete_id] <= 1'b0;
+            end
+            flush_cmp_pipeline[counter] <= 1'b0;  // Unstall the comparator pipeline
           end
         end
       end
@@ -112,19 +122,20 @@ module plic_claim_complete_tracker #(
 
       gateway_irq_claims_o[gateway-1] = is_claimed;
       gateway_irq_completes_o[gateway-1] = is_completed;
-
-      // if (is_claimed) begin
-      //   gateway_irq_claims_o[gateway-1] = 1;
-      // end else begin
-      //   gateway_irq_claims_o[gateway-1] = 0;
-      // end
-
-      // if (is_completed) begin
-      //   gateway_irq_completes_o[gateway-1] = 1;
-      // end else begin
-      //   gateway_irq_completes_o[gateway-1] = 0;
-      // end
     end
   end
+
+  // for(genvar target = 0; target < NUM_TARGETS; target++) begin
+  //   always_ff @( posedge clk_i or negedge rst_ni ) begin
+  //     if(~rst_ni) begin
+  //       flush_cmp_pipeline_q[target] <= 'b0;
+  //     end else begin
+  //       flush_cmp_pipeline_q[target] <= flush_cmp_pipeline_d[target];
+  //     end
+  //   end
+  // end
+
+  // assign flush_cmp_pipeline_o = flush_cmp_pipeline_q;
+
 
 endmodule  //plic_claim_complete_tracker

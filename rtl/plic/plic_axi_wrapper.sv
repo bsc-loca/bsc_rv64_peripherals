@@ -6,8 +6,8 @@ module plic_axi_wrapper #(
     parameter int ADDR_WIDTH         = 64,
     parameter int DATA_WIDTH         = 64,
     parameter int PARAMETER_BITWIDTH = 7,   // width of the internal parameter e.g. priorities
-    parameter int NUM_TARGETS        = 1,   // number of target slices
-    parameter int NUM_SOURCES        = 1,   // number of sources = number of gateways
+    parameter int NUM_TARGETS        = 2,   // number of target slices
+    parameter int NUM_SOURCES        = 64,   // number of sources = number of gateways
     localparam int Bpw = DATA_WIDTH / 8  // how many bytes a data word consist of
 ) (
     input  logic                   clk_i,
@@ -53,7 +53,7 @@ module plic_axi_wrapper #(
   state_t state_d, state_q;
   logic [DATA_WIDTH-1:0] rword_d, rword_q;
 
-  always_ff @(posedge clk_i) begin : p_plic_regs
+  always_ff @(posedge clk_i or negedge rst_ni) begin : p_plic_regs
     if (!rst_ni) begin
       state_q <= Idle;
       rword_q <= '0;

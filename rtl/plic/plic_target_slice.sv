@@ -38,6 +38,9 @@ module plic_target_slice #(
     localparam int IdBitwidth = $clog2(NUM_GATEWAYS + 1) // the +1 is because counting starts from 1 and goes to NUM_GATEWAYS+1
 ) (
     // Input signals from gateways.
+    input  logic                         clk_i,
+    input  logic                         rst_ni,
+    input  logic                         flush_cmp_pipeline_i,
     input  logic                         interrupt_pending_i    [NUM_GATEWAYS],
     input  logic [PRIORITY_BITWIDTH-1:0] interrupt_priority_i   [NUM_GATEWAYS],
     input  logic [       IdBitwidth-1:0] interrupt_id_i         [NUM_GATEWAYS],
@@ -52,24 +55,33 @@ module plic_target_slice #(
   // Signals that represent the selected interrupt source.
   logic [PRIORITY_BITWIDTH:0] best_priority;
   logic [     IdBitwidth-1:0] best_id;
+  logic                       best_valid;
 
-  // Create a tree to find the best interrupt source.
-  plic_find_max #(
-      .NUM_OPERANDS     (NUM_GATEWAYS),
-      .ID_BITWIDTH      (IdBitwidth),
-      .PRIORITY_BITWIDTH(PRIORITY_BITWIDTH + 1)
-  ) find_max_instance (
-      .priorities_i           (interrupt_priority_masked),
-      .identifiers_i          (interrupt_id_i),
-      // Outputs
-      .largest_priority_o     (best_priority),
-      .identifier_of_largest_o(best_id)
+  comparison_pipeline_selector_flush # (
+    .MTHAN_LTHAN(1'b1),
+    .N_PORTS(NUM_GATEWAYS),
+    .ID_SIZE(IdBitwidth),
+    .DATA_WIDTH(PRIORITY_BITWIDTH + 1),
+    .REG_PATTERN({{($clog2(NUM_GATEWAYS)-1){1'b1}}, 1'b0})
+  ) find_max_prio (
+    .clk_i(clk_i),
+    .rstn_i(rst_ni),
+
+    .flush_i(flush_cmp_pipeline_i),
+
+    .comp_en_i(interrupt_pending_i),
+    .comparation_regs_i(interrupt_priority_masked),
+    .ids_of_regs_i(interrupt_id_i),
+
+    .valid_o(best_valid),
+    .selected_value_o(best_priority),
+    .selected_id_o(best_id)
   );
 
   // Compare the priority of the best interrupt source to the threshold.
   always_comb begin : proc_compare_threshold
     if (((best_priority - 1) > threshold_i) && (best_priority != '0)) begin
-      ext_interrupt_present_o = 1;
+      ext_interrupt_present_o = best_valid;
       identifier_of_largest_o = best_id;
     end else begin
       if (((best_priority - 1) <= threshold_i) && (best_priority != '0)) begin

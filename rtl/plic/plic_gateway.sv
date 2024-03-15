@@ -1,3 +1,11 @@
+//!
+//!
+//!
+//!
+//!
+//!
+//!
+
 // Copyright 2018 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
@@ -46,7 +54,7 @@ module plic_gateway (
 
   assign irq_trigger = (~wait_completion_q | completed_i) & irq_source_i;
 
-  always_ff @(posedge clk_i) begin : proc_update_ff
+  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_update_ff
     if (~rst_ni) begin
       irq_pending_q     <= 1'b0;
       wait_completion_q <= 1'b0;

@@ -92,9 +92,6 @@ module plic_interface #(
   logic [PARAMETER_BITWIDTH-1:0] priorities_d[NUM_GATEWAYS];
   logic [PARAMETER_BITWIDTH-1:0] priorities_q[NUM_GATEWAYS];
 
-  logic [IdBitwidth-1:0] id_of_largest_priority_d[NUM_TARGETS];
-  logic [IdBitwidth-1:0] id_of_largest_priority_q[NUM_TARGETS];
-
   logic [7:0] ena_bundles_d[NumGatewayBundles][NUM_TARGETS][DATA_WIDTH/8];
   logic [7:0] ena_bundles_q[NumGatewayBundles][NUM_TARGETS][DATA_WIDTH/8];
 
@@ -102,9 +99,6 @@ module plic_interface #(
   logic irq_enables_tmp[NUM_GATEWAYS+1][NUM_TARGETS];
 
   always_comb begin
-    // assignments
-    id_of_largest_priority_d = id_of_largest_priority_i;
-
     // assign addresses
     page_address = addr[ADDR_WIDTH-1:12];
     page_offset[11:0] = addr[11:0];
@@ -274,7 +268,7 @@ module plic_interface #(
         // read case
         if (en & !we) begin
           target_irq_claims_o[BitsTargets'(page_address[13:0]-14'h200)] = 1;
-          rdata = {{(DATA_WIDTH - IdBitwidth) {1'b0}}, id_of_largest_priority_q[BitsTargets'(page_address[13:0]-14'h200)]};
+          rdata = {{(DATA_WIDTH - IdBitwidth) {1'b0}}, id_of_largest_priority_i[BitsTargets'(page_address[13:0]-14'h200)]};
           // write case
         end else if (en & we) begin
           target_irq_completes_o[BitsTargets'(page_address[13:0]-14'h200)] = 1;
@@ -296,7 +290,7 @@ module plic_interface #(
   end
 
   for (genvar gateway = 0; gateway < NUM_GATEWAYS; ++gateway) begin
-    always_ff @(posedge clk_i) begin : proc_update_prio_ff
+    always_ff @(posedge clk_i or negedge rst_ni) begin : proc_update_prio_ff
       if (~rst_ni) begin
         priorities_q[gateway] <= '0;
       end else begin
@@ -306,7 +300,7 @@ module plic_interface #(
   end
 
   // store data in flip flops
-  always_ff @(posedge clk_i) begin : proc_update_ff
+  always_ff @(posedge clk_i or negedge rst_ni) begin : proc_update_ff
     if (~rst_ni) begin  // set all registers to 0
       for (integer bundle = 0; bundle < NumGatewayBundles; bundle++)
         for (integer target = 0; target < NUM_TARGETS; target++)
@@ -315,12 +309,10 @@ module plic_interface #(
 
       for (integer target = 0; target < NUM_TARGETS; target++) begin
         thresholds_q[target]             <= 0;
-        id_of_largest_priority_q[target] <= 0;
       end
     end else begin
       // ena_bundles_q            <= ena_bundles_d;
       thresholds_q             <= thresholds_d;
-      id_of_largest_priority_q <= id_of_largest_priority_d;
       for (integer bundle = 0; bundle < NumGatewayBundles; bundle++) begin
         for (integer target = 0; target < NUM_TARGETS; target++) begin 
           for (integer byte_in_word = 0; byte_in_word < (DATA_WIDTH / 8); byte_in_word++) begin
