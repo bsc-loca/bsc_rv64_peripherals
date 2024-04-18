@@ -194,7 +194,7 @@ module clint #(
     end
   end
 
-  assign increase_timer = reg_q[STAGES-1];
+  assign increase_timer = reg_q[STAGES-2] & (~reg_q[STAGES-1]);
 
   // Registers
   always_ff @(posedge clk_i or negedge rst_ni) begin
