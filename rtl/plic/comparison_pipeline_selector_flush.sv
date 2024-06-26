@@ -33,10 +33,11 @@
 
 module comparison_pipeline_selector_flush #(
 
-    parameter       MTHAN_LTHAN     = 1'b1,       //! HIGH(1'b1): Greatest Selector, LOW(1'b0): Smalest Selector
-    parameter       N_PORTS         = 8,          //! Number of input ports to compare and select from.
-    parameter       ID_SIZE         = 3,          //! Data sizes for each port ID.
-    parameter       DATA_WIDTH      = 8,
+    parameter       MTHAN_LTHAN         = 1'b1,       //! HIGH(1'b1): Greatest Selector, LOW(1'b0): Smalest Selector
+    parameter logic DEFAULT_PRIORITY    = 1'b1,       //! HIGH(1'b1): Greatest Port Priority, LOW(1'b0): Smallest Port Priority (IN CASE OF EQUAL VALUES)
+    parameter       N_PORTS             = 8,          //! Number of input ports to compare and select from.
+    parameter       ID_SIZE             = 3,          //! Data sizes for each port ID.
+    parameter       DATA_WIDTH          = 8,
 
     //! Parameter express if a register must be placed after a comparison layer, each bit of the array set the corresponding
     //! layer regs being the LSB the one that correspond to the first layer. So, for an 8 elements input there are at most 3
@@ -74,18 +75,30 @@ module comparison_pipeline_selector_flush #(
    generate
 
         if(TREE_DEPTH == 1) begin       // Final leaf
-            logic comp_result,both_valid ;
+
+            logic comp_result, both_valid;
             assign both_valid = comp_en_i[0] && comp_en_i[1];
-            if(MTHAN_LTHAN)begin
-                assign comp_result = (both_valid)?comparation_regs_i[0] > comparation_regs_i[1]: comp_en_i[0];
+
+            localparam LEFT_IDX  = (DEFAULT_PRIORITY) ? 0 : 1;
+            localparam RIGHT_IDX = (DEFAULT_PRIORITY) ? 1 : 0;
+
+            if (MTHAN_LTHAN) begin
+                assign comp_result = (both_valid) ? comparation_regs_i[LEFT_IDX] > comparation_regs_i[RIGHT_IDX] : comp_en_i[LEFT_IDX];
             end else begin
-                assign comp_result = (both_valid)?comparation_regs_i[0] < comparation_regs_i[1]: comp_en_i[0];
+                assign comp_result = (both_valid) ? comparation_regs_i[LEFT_IDX] < comparation_regs_i[RIGHT_IDX] : comp_en_i[LEFT_IDX];
             end
+
             // Comparation of final leaf
             // Mux selection
-            assign valid_d          = comp_en_i[0] || comp_en_i[1];
-            assign selected_value_d = (comp_result)? comparation_regs_i[0]:comparation_regs_i[1] ;
-            assign selected_id_d    = (comp_result)? ids_of_regs_i[0]:ids_of_regs_i[1];
+            assign valid_d = comp_en_i[0] || comp_en_i[1];
+            
+            if (DEFAULT_PRIORITY) begin
+                assign selected_value_d = (comp_result) ? comparation_regs_i[0] : comparation_regs_i[1] ;
+                assign selected_id_d    = (comp_result) ? ids_of_regs_i[0]      : ids_of_regs_i[1];
+            end else begin
+                assign selected_value_d = (comp_result) ? comparation_regs_i[1] : comparation_regs_i[0] ;
+                assign selected_id_d    = (comp_result) ? ids_of_regs_i[1]      : ids_of_regs_i[0];
+            end
 
             if (REG_PATTERN[0] == 1'b1) begin
 
@@ -109,12 +122,12 @@ module comparison_pipeline_selector_flush #(
                     end
                 end
                 // Output with register
-                assign valid_o          = valid_q;
+                assign valid_o          = valid_q;         
                 assign selected_value_o = selected_value_q;
-                assign selected_id_o    = selected_id_q;
+                assign selected_id_o    = selected_id_q;   
             end else begin
                 // Direct combinational output
-                always_comb begin : blockName
+                always_comb begin
                     if (flush_i) begin
                         valid_o          = 1'b0;
                         selected_value_o = {$bits(REG_SIZE_TYP_T){1'b0}};
@@ -140,16 +153,18 @@ module comparison_pipeline_selector_flush #(
 
 
             // Lower part of port
-            comparison_pipeline_selector #(
+            comparison_pipeline_selector_flush #(
                 .MTHAN_LTHAN       (MTHAN_LTHAN),
+                .DEFAULT_PRIORITY  (DEFAULT_PRIORITY),
                 .N_PORTS           (SPLIT_PORT_WIDTH),
                 .ID_SIZE           (ID_SIZE),
                 .DATA_WIDTH        (DATA_WIDTH),
                 .REG_PATTERN       (REG_PATTERN[$clog2(SPLIT_PORT_WIDTH)-1:0])
-            ) comparison_pipeline_selector_inst_l (
+            ) comparison_pipeline_selector_flush_inst_l (
 
                 .clk_i              (clk_i),
                 .rstn_i             (rstn_i),
+                .flush_i            (flush_i),
 
                 .comp_en_i          (comp_en_i[SPLIT_PORT_WIDTH-1:0]),
                 .comparation_regs_i (comparation_regs_i[SPLIT_PORT_WIDTH-1:0]),
@@ -185,16 +200,19 @@ module comparison_pipeline_selector_flush #(
 
 
             // Higer part of the por
-            comparison_pipeline_selector #(
+            comparison_pipeline_selector_flush #(
                 .MTHAN_LTHAN       (MTHAN_LTHAN),
+                .DEFAULT_PRIORITY  (DEFAULT_PRIORITY),
                 .N_PORTS           (SPLIT_PORT_WIDTH),
                 .ID_SIZE           (ID_SIZE),
                 .DATA_WIDTH        (DATA_WIDTH),
                 .REG_PATTERN       (REG_PATTERN[$clog2(SPLIT_PORT_WIDTH)-1:0])
-            ) comparison_pipeline_selector_inst_m (
+            ) comparison_pipeline_selector_flush_inst_m (
 
                 .clk_i              (clk_i),
                 .rstn_i             (rstn_i),
+                .flush_i            (flush_i),
+
 
                 .comp_en_i          (b2_ms_en_port),
                 .comparation_regs_i (b2_ms_regs_port),
@@ -211,18 +229,31 @@ module comparison_pipeline_selector_flush #(
             assign both_valid = ls_valid && ms_valid;
             
 
-            if (MTHAN_LTHAN == 1) begin
-                assign fcomp_result = (both_valid)?lsport > msport:ls_valid;
+            if (MTHAN_LTHAN) begin
+                if (DEFAULT_PRIORITY) begin
+                    assign fcomp_result = (both_valid) ? lsport > msport : ls_valid;
+                end else begin
+                    assign fcomp_result = (both_valid) ? msport > lsport : ms_valid;
+                end
             end
             else begin
-                assign fcomp_result = (both_valid)?lsport < msport:ls_valid;
-            end
-   
+                if (DEFAULT_PRIORITY) begin
+                    assign fcomp_result = (both_valid) ? lsport < msport : ls_valid;
+                end else begin
+                    assign fcomp_result = (both_valid) ? msport < lsport : ms_valid;
+                end
+            end   
 
             // Mux selection
             assign valid_d          = ms_valid || ls_valid;
-            assign selected_value_d = (fcomp_result)? lsport:msport ;
-            assign selected_id_d    = (fcomp_result)? lsid:msid;
+
+            if (DEFAULT_PRIORITY) begin
+                assign selected_value_d = (fcomp_result) ? lsport : msport;
+                assign selected_id_d    = (fcomp_result) ? lsid   : msid;
+            end else begin
+                assign selected_value_d = (fcomp_result) ? msport : lsport;
+                assign selected_id_d    = (fcomp_result) ? msid   : lsid;
+            end
 
             if (REG_PATTERN[TREE_DEPTH-1] == 1'b1) begin
 
@@ -251,7 +282,7 @@ module comparison_pipeline_selector_flush #(
                 assign selected_id_o    = selected_id_q;   
             end else begin
                 // Direct combinational output
-                always_comb begin : blockName
+                always_comb begin
                     if (flush_i) begin
                         valid_o          = 1'b0;
                         selected_value_o = {$bits(REG_SIZE_TYP_T){1'b0}};
