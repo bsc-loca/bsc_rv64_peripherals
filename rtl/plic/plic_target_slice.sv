@@ -59,6 +59,7 @@ module plic_target_slice #(
 
   comparison_pipeline_selector_flush # (
     .MTHAN_LTHAN(1'b1),
+    .DEFAULT_PRIORITY(1'b0),
     .N_PORTS(NUM_GATEWAYS),
     .ID_SIZE(IdBitwidth),
     .DATA_WIDTH(PRIORITY_BITWIDTH + 1),
