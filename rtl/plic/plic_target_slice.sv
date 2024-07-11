@@ -40,7 +40,7 @@ module plic_target_slice #(
 ) (
     // Input signals from gateways.
     input  logic                         clk_i,                                     //! clock input
-    input  logic                         rstn_i,                                    //! reset input, active low
+    input  logic                         rst_ni,                                    //! reset input, active low
     input  logic                         flush_cmp_pipeline_i,                      //! flush comparison selector pipeline
     input  logic                         interrupt_pending_i    [NUM_GATEWAYS-1:0], //! interrupt pending inputs, coming from peripherals
     input  logic [PRIORITY_BITWIDTH-1:0] interrupt_priority_i   [NUM_GATEWAYS-1:0], //! interrupt priorities, coming from plic_interface registers
@@ -70,7 +70,7 @@ module plic_target_slice #(
         .REG_PATTERN            ({{($clog2(NUM_GATEWAYS)-1){1'b1}}, 1'b0})
     ) find_max_prio (
         .clk_i                  (clk_i),
-        .rstn_i                 (rstn_i),
+        .rstn_i                 (rst_ni),
 
         .flush_i                (flush_cmp_pipeline_i),
 
