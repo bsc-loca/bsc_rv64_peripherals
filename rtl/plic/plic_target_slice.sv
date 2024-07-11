@@ -57,9 +57,9 @@ module plic_target_slice #(
 
 
     // Signals that represent the selected interrupt source.
-    logic [PRIORITY_BITWIDTH:0] best_priority;
-    logic [ID_BITWIDTH-1:0]     best_id;
-    logic                       best_valid;
+    logic [PRIORITY_BITWIDTH-1:0]   best_priority;
+    logic [ID_BITWIDTH-1:0]         best_id;
+    logic                           best_valid;
 
     comparison_pipeline_selector_flush #(
         .MTHAN_LTHAN            (1'b1),
