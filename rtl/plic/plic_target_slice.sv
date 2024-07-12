@@ -53,7 +53,7 @@ module plic_target_slice #(
 
     logic [0:0] elegible_interrupt_vec [NUM_GATEWAYS-1:0];
 
-    logic [PRIORITY_BITWIDTH:0] interrupt_priority_masked[NUM_GATEWAYS-1:0];
+    // logic [PRIORITY_BITWIDTH:0] interrupt_priority_masked[NUM_GATEWAYS-1:0];
 
 
     // Signals that represent the selected interrupt source.
