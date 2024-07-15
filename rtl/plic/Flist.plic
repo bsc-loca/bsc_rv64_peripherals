@@ -1,8 +1,7 @@
 ./plic_claim_complete_tracker.sv
-./plic_comparator.sv
-./plic_find_max.sv
+./comparison_pipeline_selector_flush.sv
 ./plic_gateway.sv
 ./plic_interface.sv
-./bsc_plic.sv
 ./plic_target_slice.sv
-./reg_bus_if.sv
+./plic.sv
+./plic_axi_wrapper.sv
