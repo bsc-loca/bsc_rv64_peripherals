@@ -139,18 +139,18 @@ module plic_axi_wrapper #(
       .NUM_TARGETS(NUM_TARGETS),
       .NUM_SOURCES(NUM_SOURCES)
   ) plic_inst (
-      .clk_i,
-      .rst_ni,
-      .irq_sources_i,
-      .eip_targets_o,
+      .clk_i         (clk_i),
+      .rstn_i        (rst_ni),
+      .irq_sources_i (irq_sources_i),
+      .eip_targets_o (eip_targets_o),
 
-      .addr,
-      .en,
-      .wdata,
-      .we,
-      .be,
-      .rdata,
-      .error
+      .sri_addr_i    (addr),
+      .sri_en_i      (en),
+      .sri_wdata_i   (wdata),
+      .sri_we_i      (we),
+      .sri_be_i      (be),
+      .sri_rdata_o   (rdata),
+      .sri_error_o   (error)
   );
 
   // initial begin

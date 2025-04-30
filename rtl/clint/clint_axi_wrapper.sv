@@ -158,20 +158,21 @@ module clint_axi_wrapper #(
       .ADDR_WIDTH(ADDR_WIDTH),
       .DATA_WIDTH(DATA_WIDTH)
   ) clint_inst (
-      .clk_i,
-      .rst_ni,
+      .clk_i          (clk_i),
+      .rstn_i         (rst_ni),
 
-      .rtc_i,
-      .timer_irq_o,
-      .ipi_o,
-      .time_o,
+      .sri_addr_i     (addr),
+      .sri_en_i       (en),
+      .sri_wdata_i    (wdata),
+      .sri_we_i       (we), 
+      .sri_be_i       (be),
+      .sri_rdata_o    (rdata),
+      .sri_error_o    (error),
 
-      .addr,
-      .en,
-      .wdata,
-      .we,
-      .be,
-      .rdata,
-      .error
+      .rtc_i          (rtc_i),
+      .timer_irq_o    (timer_irq_o),
+      .ipi_o          (ipi_o),
+      .time_o         (time_o)
   );
+
 endmodule

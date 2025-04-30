@@ -1,3 +1,37 @@
+//!
+//! **PROJECT:**             System_Verilog_Hardware_Common_Lib
+//!
+//! **LANGUAGE:**            SystemVerilog
+//!
+//! **FILE:**                clint.sv
+//!
+//! **AUTHOR(S):**
+//!
+//!   - Alejandro Tafalla - alejandro.tafalla@bsc.es
+//!
+//! **CONTRIBUTORS:**
+//!
+//!   - Alejandro Iznardo - alejandro.iznardo@bsc.es
+//!
+//! **REVISION:**
+//!   * 0.0.1 - Initial release. 24/04/2024
+//!
+//!
+//! *Library compliance:*
+//!
+//! | Doc | Schematic | TB | ASRT |Params. Val.| Sintesys test| Unify Interface| Functional Model |
+//! |-----|-----------|----|------|------------|--------------|----------------|------------------|
+//! |  ✔  |     x     |  x |   x  |     x      |       x      |        x       |         x        |
+//!
+//!
+
+//! Module Functionality
+//! --------------------
+//! This is Core-Local Interrupt Controller. It follows the RISC-V ACLINT v1.0 spec. The ACLINT provides
+//! a timer with individual programmable interrupts for each hart and a means of sending Inter-Processor
+//! interrupts by writing to a register.
+
+// Original License Header
 // Copyright 2018 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the “License”); you may not use this file except in
@@ -19,30 +53,46 @@
 // Edited at Barcelona Supercomputing Center by Alejandro Tafalla
 
 module clint #(
-    parameter int unsigned NR_CORES       = 1, // Number of cores therefore also the number of timecmp registers and timer interrupts
-    parameter int unsigned ADDR_WIDTH = 64,
-    parameter int unsigned DATA_WIDTH = 64
+    parameter int           NR_CORES    = 1,            //! Number of cores therefore also the number of timecmp registers and timer interrupts
+    parameter logic [63:0]  TIME_CMP_RST_VALUE = 64'b0, //! Reset value for mtime comparison register.
+
+    parameter int   ADDR_WIDTH  = 64,
+    parameter int   DATA_WIDTH  = 64,
+
+    localparam int  BPW         = (DATA_WIDTH / 8)
 ) (
-    input logic                       clk_i,      // Clock
-    input logic                       rst_ni,     // Asynchronous reset active low
+    input  logic                  clk_i,
+    input  logic                  rstn_i,
 
     // Bus interface
-    input logic [ADDR_WIDTH-1:0]  addr,
-    input logic                   en,
-    input logic [DATA_WIDTH-1:0]  wdata,
-    input logic                   we,
-    input logic [7:0]             be,
-    output logic [DATA_WIDTH-1:0] rdata,
-    output logic                  error,
+    input  logic [ADDR_WIDTH-1:0] sri_addr_i,   //! register interface address
+    input  logic                  sri_en_i,     //! register interface enable
+    input  logic [DATA_WIDTH-1:0] sri_wdata_i,  //! register interface data to write
+    input  logic                  sri_we_i,     //! register interface write enable
+    input  logic [BPW-1:0]        sri_be_i,     //! register interface byte enable (write mask)
+    output logic [DATA_WIDTH-1:0] sri_rdata_o,  //! register interface read data
+    output logic                  sri_error_o,  //! register interface error
 
-    input  logic                      rtc_i,        // Real-time clock in (usually 32.768 kHz)
-    output logic [NR_CORES-1:0]       timer_irq_o,  // Timer interrupts
-    output logic [NR_CORES-1:0]       ipi_o,        // software interrupt (a.k.a inter-process-interrupt)
-    output logic [63:0]               time_o
+    input  logic                  rtc_i,        //! Real-time clock in (usually 32.768 kHz)
+    output logic [NR_CORES-1:0]   timer_irq_o,  //! Timer interrupts
+    output logic [NR_CORES-1:0]   ipi_o,        //! software interrupt (a.k.a inter-process-interrupt)
+    output logic [63:0]           time_o        //! timer register output
 );
 
-  localparam int AddrSelWidth = (NR_CORES == 1) ? 1 : $clog2(NR_CORES);
-  localparam int NBytes = DATA_WIDTH/8;
+  // -------------
+  // Assertions
+  // --------------
+  //pragma translate_off
+`ifndef VERILATOR
+  // Static assertion check for appropriate bus width
+  initial begin
+    assert (NR_CORES < 4095)
+    else $error("Number of cores must be less than 4095");
+  end
+`endif
+  //pragma translate_on
+
+  localparam int ADDR_SEL_WIDTH = (NR_CORES == 1) ? 1 : $clog2(NR_CORES);
 
   // register offset
   localparam logic [15:0] MSIP_BASE     = 16'h0;
@@ -50,17 +100,19 @@ module clint #(
   localparam logic [15:0] MTIME_BASE    = 16'hbff8;
 
   // actual registers
-  logic [63:0] mtime_n, mtime_q;
+  logic [63:0]               mtime_n,    mtime_q;
   logic [NR_CORES-1:0][63:0] mtimecmp_n, mtimecmp_q;
-  logic [NR_CORES-1:0] msip_n, msip_q;
+  logic [NR_CORES-1:0]       msip_n,     msip_q;
+
   // increase the timer
   logic increase_timer;
 
-  logic [AddrSelWidth-1:0] hart_idx;
-  assign hart_idx = addr[AddrSelWidth-1+$clog2(NBytes):$clog2(NBytes)];
-  assign time_o = mtime_q;
+  logic [ADDR_SEL_WIDTH-1:0] hart_idx;
 
-  typedef enum logic[2:0] {
+  assign hart_idx = sri_addr_i[ADDR_SEL_WIDTH-1+$clog2(BPW):$clog2(BPW)];
+  assign time_o   = mtime_q;
+
+  typedef enum logic [2:0] {
     MSIP_R,
     MSIP_W,
     MTIME_R,
@@ -72,22 +124,22 @@ module clint #(
 
   mode_sel_t mode;
 
-  // Decode address
+  // Register address decoding
   always_comb begin : mode_sel
-    if (en) begin
-      case (addr[15:0]) inside
+    if (sri_en_i) begin
+      case (sri_addr_i[15:0]) inside
         [MSIP_BASE : MSIP_BASE + 4 * 12'(NR_CORES)]: begin
-          if (we) mode = MSIP_W;
+          if (sri_we_i) mode = MSIP_W;
           else mode = MSIP_R;
         end
 
         [MTIMECMP_BASE : MTIMECMP_BASE + 8 * 12'(NR_CORES)]: begin
-          if (we) mode = MTIMECMP_W;
+          if (sri_we_i) mode = MTIMECMP_W;
           else mode = MTIMECMP_R;
         end
 
         [MTIME_BASE : MTIME_BASE + 4]: begin
-          if (we) mode = MTIME_W;
+          if (sri_we_i) mode = MTIME_W;
           else mode = MTIME_R;
         end
         default: mode = ERROR;
@@ -98,17 +150,14 @@ module clint #(
     end
   end
 
-  // -----------------------------
   // Register Update Logic
-  // -----------------------------
-  // APB register write logic
   always_comb begin
     // Default assignments
-    rdata = 'b0;
-    error = 0;
-    mtime_n    = mtime_q;
-    mtimecmp_n = mtimecmp_q;
-    msip_n     = msip_q;
+    sri_rdata_o = {DATA_WIDTH{1'b0}};
+    sri_error_o = 1'b0;
+    mtime_n     = mtime_q;
+    mtimecmp_n  = mtimecmp_q;
+    msip_n      = msip_q;
 
     // RTC says we should increase the timer
     if (increase_timer) mtime_n = mtime_q + 1;
@@ -116,44 +165,44 @@ module clint #(
     // written from APB bus - gets priority
     case (mode)
       MSIP_R: begin
-        rdata = {{(DATA_WIDTH-1){1'b0}},msip_q[hart_idx]};
+        sri_rdata_o = {{((DATA_WIDTH/2)-1){1'b0}}, msip_q[hart_idx], {((DATA_WIDTH/2)-1){1'b0}}, msip_q[hart_idx]}; // replicate data for 64b bus
       end
       MSIP_W: begin
         // MSIP registers are 4B
-        if (be[0]) begin
-          msip_n[addr[AddrSelWidth-1+2:2]] = wdata[0];
+        if (sri_be_i[0]) begin
+          msip_n[sri_addr_i[ADDR_SEL_WIDTH-1+2:2]] = sri_wdata_i[32*sri_addr_i[2]]; // select bit 0 or 32 depending on address (for 64b buses)
         end
       end
 
       MTIMECMP_R: begin
-        rdata = mtimecmp_q[hart_idx];
+        sri_rdata_o = mtimecmp_q[hart_idx];
       end
 
       MTIMECMP_W: begin
-        for (integer byte_in_word = 0; byte_in_word < NBytes; byte_in_word++) begin
-          if (be[byte_in_word]) begin
-            mtimecmp_n[hart_idx][8*(byte_in_word)+:8] = wdata[8*(byte_in_word)+:8];
+        for (integer byte_in_word = 0; byte_in_word < BPW; byte_in_word++) begin
+          if (sri_be_i[byte_in_word]) begin
+            mtimecmp_n[hart_idx][8*(byte_in_word)+:8] = sri_wdata_i[8*(byte_in_word)+:8];
           end
         end
       end
 
       MTIME_R: begin
-        rdata = mtime_q;
+        sri_rdata_o = mtime_q;
       end
 
       MTIME_W: begin
-        for (integer byte_in_word = 0; byte_in_word < NBytes; byte_in_word++) begin
-          if (be[byte_in_word]) begin
-            mtime_n[8*(byte_in_word)+:8] = wdata[8*(byte_in_word)+:8];
+        for (integer byte_in_word = 0; byte_in_word < BPW; byte_in_word++) begin
+          if (sri_be_i[byte_in_word]) begin
+            mtime_n[8*(byte_in_word)+:8] = sri_wdata_i[8*(byte_in_word)+:8];
           end
         end
       end
 
       ERROR: begin
-        error = 1;
+        sri_error_o = 1'b1;
       end
       default: begin
-        error = 1;
+        sri_error_o = 1'b1;
       end
     endcase
   end
@@ -171,7 +220,8 @@ module clint #(
     for (int unsigned i = 0; i < NR_CORES; i++) begin
       if (mtime_q >= mtimecmp_q[i]) begin
         timer_irq_o[i] = 1'b1;
-      end else begin
+      end
+      else begin
         timer_irq_o[i] = 1'b0;
       end
     end
@@ -186,10 +236,11 @@ module clint #(
 
   logic [STAGES-1:0] reg_q;
 
-  always_ff @(posedge clk_i, negedge rst_ni) begin
-    if (!rst_ni) begin
-      reg_q <= 'h0;
-    end else begin
+  always_ff @(posedge clk_i, negedge rstn_i) begin
+    if (!rstn_i) begin
+      reg_q <= {STAGES{1'b0}};
+    end
+    else begin
       reg_q <= {reg_q[STAGES-2:0], rtc_i};
     end
   end
@@ -197,12 +248,15 @@ module clint #(
   assign increase_timer = reg_q[STAGES-2] & (~reg_q[STAGES-1]);
 
   // Registers
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-    if (~rst_ni) begin
+  always_ff @(posedge clk_i or negedge rstn_i) begin
+    if (~rstn_i) begin
       mtime_q    <= 64'b0;
-      mtimecmp_q <= 'b0;
-      msip_q     <= '0;
-    end else begin
+      for (int i=0; i<NR_CORES; i++) begin
+        mtimecmp_q[i] <= TIME_CMP_RST_VALUE;
+      end
+      msip_q     <= {NR_CORES{1'b0}};
+    end
+    else begin
       mtime_q    <= mtime_n;
       mtimecmp_q <= mtimecmp_n;
       msip_q     <= msip_n;
@@ -211,21 +265,5 @@ module clint #(
 
   assign ipi_o = msip_q;
 
-  // -------------
-  // Assertions
-  // --------------
-  //pragma translate_off
-`ifndef VERILATOR
-  // Static assertion check for appropriate bus width
-  initial begin
-    assert (ADDR_WIDTH == 64)
-    else $error("Address width of 64 supported for now");
-    assert (DATA_WIDTH == 64)
-    else $error("Data width of 64 supported for now");
-    assert (NR_CORES < 4095)
-    else $error("Number of cores must be less than 4095");
-  end
-`endif
-  //pragma translate_on
 
 endmodule

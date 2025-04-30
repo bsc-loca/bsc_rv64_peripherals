@@ -1,3 +1,36 @@
+//!
+//! **PROJECT:**             System_Verilog_Hardware_Common_Lib
+//!
+//! **LANGUAGE:**            SystemVerilog
+//!
+//! **FILE:**                plic_target_slice.sv
+//!
+//! **AUTHOR(S):**
+//!
+//!   - Alejandro Tafalla - alejandro.tafalla@bsc.es
+//!
+//! **CONTRIBUTORS:**
+//!
+//!   -
+//!
+//! **REVISION:**
+//!   * 0.0.1 - Initial release. 2024-12-03
+//!
+//!
+//! *Library compliance:*
+//!
+//! | Doc | Schematic | TB | ASRT |Params. Val.| Sintesys test| Unify Interface| Functional Model |
+//! |-----|-----------|----|------|------------|--------------|----------------|------------------|
+//! |  x  |     x     |  x |   x  |     x      |       x      |        x       |         x        |
+//!
+//!
+
+//! Module Functionality
+//! --------------------
+//! Target slices calculate the active interrupt with the highest priority, compares it with the target's
+//! threshold and decides on whether to send an external interrupt signal or not.
+
+// Original License Header
 // Copyright 2018 ETH Zurich and University of Bologna.
 // Copyright and related rights are licensed under the Solderpad Hardware
 // License, Version 0.51 (the "License"); you may not use this file except in
@@ -36,11 +69,12 @@
 module plic_target_slice #(
     parameter int PRIORITY_BITWIDTH = 8,
     parameter int NUM_GATEWAYS      = 2,
+    parameter int COMB_CMP_SEL      = 1,
     localparam int ID_BITWIDTH = $clog2(NUM_GATEWAYS + 1) // the +1 is because counting starts from 1 and goes to NUM_GATEWAYS+1
 ) (
     // Input signals from gateways.
     input  logic                         clk_i,                                     //! clock input
-    input  logic                         rst_ni,                                    //! reset input, active low
+    input  logic                         rstn_i,                                    //! reset input, active low
     input  logic                         flush_cmp_pipeline_i,                      //! flush comparison selector pipeline
     input  logic                         interrupt_pending_i    [NUM_GATEWAYS-1:0], //! interrupt pending inputs, coming from peripherals
     input  logic [PRIORITY_BITWIDTH-1:0] interrupt_priority_i   [NUM_GATEWAYS-1:0], //! interrupt priorities, coming from plic_interface registers
@@ -53,35 +87,59 @@ module plic_target_slice #(
 
     logic [0:0] elegible_interrupt_vec [NUM_GATEWAYS-1:0];
 
-    // logic [PRIORITY_BITWIDTH:0] interrupt_priority_masked[NUM_GATEWAYS-1:0];
-
-
     // Signals that represent the selected interrupt source.
     logic [PRIORITY_BITWIDTH-1:0]   best_priority;
     logic [ID_BITWIDTH-1:0]         best_id;
     logic                           best_valid;
 
-    comparison_pipeline_selector_flush #(
-        .MTHAN_LTHAN            (1'b1),
-        .DEFAULT_PRIORITY       (1'b1),
-        .N_PORTS                (NUM_GATEWAYS),
-        .ID_SIZE                (ID_BITWIDTH),
-        .DATA_WIDTH             (PRIORITY_BITWIDTH),
-        .REG_PATTERN            ({{($clog2(NUM_GATEWAYS)-1){1'b1}}, 1'b0})
-    ) find_max_prio (
-        .clk_i                  (clk_i),
-        .rstn_i                 (rst_ni),
+    generate
+        if (COMB_CMP_SEL == 1) begin
+            comparison_selector #(
+                .MTHAN_LTHAN            (1'b1),
+                .DEFAULT_PRIORITY       (1'b0),
+                .N_PORTS                (NUM_GATEWAYS),
+                .ID_SIZE                (ID_BITWIDTH),
+                .DATA_WIDTH             (PRIORITY_BITWIDTH),
+                .REG_PATTERN            ({1'b0})
+            ) find_max_prio (
+                .clk_i                  (clk_i),
+                .rstn_i                 (rstn_i),
+                .flush_i                (1'b0),     // Since it is a combinational comparision (comparision tree with depth 1), no need to flush
+                .comp_en_i              (elegible_interrupt_vec),
+                .comparation_regs_i     (interrupt_priority_i),
+                .ids_of_regs_i          (interrupt_id_i),
+                .valid_o                (best_valid),
+                .selected_value_o       (best_priority),
+                .selected_id_o          (best_id)
+            );
+        end else if (NUM_GATEWAYS >= 2) begin
+            comparison_selector #(
+                .MTHAN_LTHAN            (1'b1),
+                .DEFAULT_PRIORITY       (1'b0),
+                .N_PORTS                (NUM_GATEWAYS),
+                .ID_SIZE                (ID_BITWIDTH),
+                .DATA_WIDTH             (PRIORITY_BITWIDTH),
+                .REG_PATTERN            ({{($clog2(NUM_GATEWAYS)){1'b1}}})
+            ) find_max_prio (
+                .clk_i                  (clk_i),
+                .rstn_i                 (rstn_i),
 
-        .flush_i                (flush_cmp_pipeline_i),
+                .flush_i                (flush_cmp_pipeline_i),
 
-        .comp_en_i              (elegible_interrupt_vec),
-        .comparation_regs_i     (interrupt_priority_i),
-        .ids_of_regs_i          (interrupt_id_i),
+                .comp_en_i              (elegible_interrupt_vec),
+                .comparation_regs_i     (interrupt_priority_i),
+                .ids_of_regs_i          (interrupt_id_i),
 
-        .valid_o                (best_valid),
-        .selected_value_o       (best_priority),
-        .selected_id_o          (best_id)
-    );
+                .valid_o                (best_valid),
+                .selected_value_o       (best_priority),
+                .selected_id_o          (best_id)
+            );
+        end else begin
+            assign best_valid    = elegible_interrupt_vec[0]; 
+            assign best_priority = interrupt_priority_i[0];
+            assign best_id       = interrupt_id_i[0];
+        end 
+    endgenerate
 
     // Compare the priority of the best interrupt source to the threshold.
     always_comb begin : proc_compare_threshold
@@ -102,11 +160,6 @@ module plic_target_slice #(
     always_comb begin : proc_mask_gateway_outputs
         for (int i = 0; i < NUM_GATEWAYS; i++) begin
             elegible_interrupt_vec[i] = interrupt_enable_i[i] & interrupt_pending_i[i];
-            // if (interrupt_enable_i[i] && interrupt_pending_i[i]) begin
-            //     interrupt_priority_masked[i] = interrupt_priority_i[i] + 1;  //priority shift +1
-            // end else begin
-            //     interrupt_priority_masked[i] = '0;
-            // end
         end
     end
 endmodule
