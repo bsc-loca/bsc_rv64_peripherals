@@ -144,7 +144,7 @@ module plic_axi_wrapper #(
       .irq_sources_i (irq_sources_i),
       .eip_targets_o (eip_targets_o),
 
-      .sri_addr_i    (addr),
+      .sri_addr_i    (addr ^ 32'hf1100000),
       .sri_en_i      (en),
       .sri_wdata_i   (wdata),
       .sri_we_i      (we),

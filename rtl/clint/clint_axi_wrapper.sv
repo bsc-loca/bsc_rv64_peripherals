@@ -161,7 +161,7 @@ module clint_axi_wrapper #(
       .clk_i          (clk_i),
       .rstn_i         (rst_ni),
 
-      .sri_addr_i     (addr),
+      .sri_addr_i     (addr ^ 32'hf1020000),
       .sri_en_i       (en),
       .sri_wdata_i    (wdata),
       .sri_we_i       (we), 

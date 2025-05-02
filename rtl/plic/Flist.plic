@@ -1,5 +1,4 @@
 ./plic_claim_complete_tracker.sv
-./comparison_pipeline_selector_flush.sv
 ./comparison_selector.sv
 ./plic_gateway.sv
 ./plic_interface.sv
