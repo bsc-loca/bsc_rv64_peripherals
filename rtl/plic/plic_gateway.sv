@@ -84,13 +84,6 @@ module plic_gateway (
             irq_pending_q     <= 1'b0;
             wait_completion_q <= 1'b0;
         end else begin
-            //pragma translate_off
-            `ifndef VERILATOR
-            assert (~(claim_i & (~wait_completion_q & irq_source_i)));
-            assert (~(completed_i & (~wait_completion_q & irq_source_i)));
-            `endif
-            //pragma translate_on
-
             //interrupts not masked and interrupt received -> output to 1
             if (irq_trigger) begin
                 irq_pending_q <= 1;
@@ -111,5 +104,13 @@ module plic_gateway (
 
     // Make sure there is 0 cycles delay from claim_i to irq_pending_o.
     assign irq_pending_o = (irq_pending_q | irq_trigger) & ~claim_i;
+
+    assert property (@(posedge clk_i) disable iff (rstn_i !== 1'b1)
+        !(claim_i && (!wait_completion_q && irq_source_i)))
+        else $error("PLIC: Claim must not occur while an interrupt is still active and waiting for completion");
+
+    assert property (@(posedge clk_i) disable iff (rstn_i !== 1'b1)
+        !(completed_i && (!wait_completion_q && irq_source_i)))
+        else $error("PLIC: Completion must not occur while an interrupt is still active and waiting for completion");
 
 endmodule
